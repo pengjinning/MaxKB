@@ -14,7 +14,8 @@ from django.core import cache
 from django.core import signing
 from rest_framework.authentication import TokenAuthentication
 
-from common.exception.app_exception import AppAuthenticationFailed, AppEmbedIdentityFailed, AppChatNumOutOfBoundsFailed
+from common.exception.app_exception import AppAuthenticationFailed, AppEmbedIdentityFailed, AppChatNumOutOfBoundsFailed, \
+    ChatException, AppApiException
 
 token_cache = cache.caches['token_cache']
 
@@ -52,6 +53,27 @@ class TokenDetails:
         return self.token_details
 
 
+class OpenAIKeyAuth(TokenAuthentication):
+    def authenticate(self, request):
+        auth = request.META.get('HTTP_AUTHORIZATION')
+        auth = auth.replace('Bearer ', '')
+        # 未认证
+        if auth is None:
+            raise AppAuthenticationFailed(1003, '未登录,请先登录')
+        try:
+            token_details = TokenDetails(auth)
+            for handle in handles:
+                if handle.support(request, auth, token_details.get_token_details):
+                    return handle.handle(request, auth, token_details.get_token_details)
+            raise AppAuthenticationFailed(1002, "身份验证信息不正确！非法用户")
+        except Exception as e:
+            traceback.format_exc()
+            if isinstance(e, AppEmbedIdentityFailed) or isinstance(e, AppChatNumOutOfBoundsFailed) or isinstance(e,
+                                                                                                                 AppApiException):
+                raise e
+            raise AppAuthenticationFailed(1002, "身份验证信息不正确！非法用户")
+
+
 class TokenAuth(TokenAuthentication):
     # 重新 authenticate 方法，自定义认证规则
     def authenticate(self, request):
@@ -67,6 +89,7 @@ class TokenAuth(TokenAuthentication):
             raise AppAuthenticationFailed(1002, "身份验证信息不正确！非法用户")
         except Exception as e:
             traceback.format_exc()
-            if isinstance(e, AppEmbedIdentityFailed) or isinstance(e, AppChatNumOutOfBoundsFailed):
+            if isinstance(e, AppEmbedIdentityFailed) or isinstance(e, AppChatNumOutOfBoundsFailed) or isinstance(e,
+                                                                                                                 AppApiException):
                 raise e
             raise AppAuthenticationFailed(1002, "身份验证信息不正确！非法用户")

@@ -4,13 +4,7 @@
     <el-tabs v-model="activeName" class="demo-tabs" @tab-click="handleClick">
       <template v-for="(item, index) in tabList" :key="index">
         <el-tab-pane :label="item.label" :name="item.name">
-          <div class="authentication-setting__main main-calc-height">
-            <el-scrollbar>
-              <div class="form-container">
-                <component :is="item.component" />
-              </div>
-            </el-scrollbar>
-          </div>
+          <component :is="item.component" />
         </el-tab-pane>
       </template>
     </el-tabs>
@@ -22,8 +16,10 @@ import { useRouter } from 'vue-router'
 import LDAP from './component/LDAP.vue'
 import CAS from './component/CAS.vue'
 import OIDC from './component/OIDC.vue'
+import SCAN from './component/SCAN.vue'
 import { t } from '@/locales'
 import useStore from '@/stores'
+import OAUTH2 from '@/views/authentication/component/OAUTH2.vue'
 
 const { user } = useStore()
 const router = useRouter()
@@ -44,6 +40,16 @@ const tabList = [
     label: t('login.oidc.title'),
     name: 'OIDC',
     component: OIDC
+  },
+  {
+    label: t('login.oauth2.title'),
+    name: 'OAUTH2',
+    component: OAUTH2
+  },
+  {
+    label: '扫码登录',
+    name: 'SCAN',
+    component: SCAN
   }
 ]
 
@@ -62,12 +68,9 @@ onMounted(() => {
   min-width: 700px;
   height: calc(100vh - var(--app-header-height) - var(--app-view-padding) * 2 - 70px);
   box-sizing: border-box;
-  .form-container {
+  :deep(.form-container) {
     width: 70%;
     margin: 0 auto;
-    :deep(.el-checkbox__label) {
-      font-weight: 400;
-    }
   }
 }
 </style>

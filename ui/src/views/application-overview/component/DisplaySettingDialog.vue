@@ -1,5 +1,10 @@
 <template>
-  <el-dialog title="显示设置" v-model="dialogVisible">
+  <el-dialog
+    title="显示设置"
+    v-model="dialogVisible"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+  >
     <el-form label-position="top" ref="displayFormRef" :model="form">
       <el-form-item>
         <el-space direction="vertical" alignment="start">
@@ -39,7 +44,7 @@
             action="#"
             :auto-upload="false"
             :show-file-list="false"
-            accept="image/*"
+            accept="image/jpeg, image/png, image/gif"
             :on-change="(file: any, fileList: any) => onChange(file, fileList, 'avatar')"
           >
             <el-button icon="Upload">{{
@@ -47,7 +52,7 @@
             }}</el-button>
             <template #tip>
               <div class="el-upload__tip info" style="margin-top: 0">
-                建议尺寸 32*32，支持 JPG、PNG, GIF，大小不超过 10 MB
+                建议尺寸 32*32，支持 JPG、PNG、GIF，大小不超过 10 MB
               </div>
             </template>
           </el-upload>
@@ -76,7 +81,7 @@
             action="#"
             :auto-upload="false"
             :show-file-list="false"
-            accept="image/*"
+            accept="image/jpeg, image/png, image/gif"
             :on-change="(file: any, fileList: any) => onChange(file, fileList, 'float_icon')"
           >
             <el-button icon="Upload">{{
@@ -84,7 +89,7 @@
             }}</el-button>
             <template #tip>
               <div class="el-upload__tip info" style="margin-top: 0">
-                建议尺寸 32*32，支持 JPG、PNG, GIF，大小不超过 10 MB
+                建议尺寸 32*32，支持 JPG、PNG、GIF，大小不超过 10 MB
               </div>
             </template>
           </el-upload>

@@ -93,6 +93,14 @@ class MaxKBBaseModel(ABC):
     def is_cache_model():
         return True
 
+    @staticmethod
+    def filter_optional_params(model_kwargs):
+        optional_params = {}
+        for key, value in model_kwargs.items():
+            if key not in ['model_id', 'use_local', 'streaming']:
+                optional_params[key] = value
+        return optional_params
+
 
 class BaseModelCredential(ABC):
 
@@ -139,6 +147,10 @@ class BaseModelCredential(ABC):
 class ModelTypeConst(Enum):
     LLM = {'code': 'LLM', 'message': '大语言模型'}
     EMBEDDING = {'code': 'EMBEDDING', 'message': '向量模型'}
+    STT = {'code': 'STT', 'message': '语音识别'}
+    TTS = {'code': 'TTS', 'message': '语音合成'}
+    IMAGE = {'code': 'IMAGE', 'message': '图片理解'}
+    RERANKER = {'code': 'RERANKER', 'message': '重排模型'}
 
 
 class ModelInfo:

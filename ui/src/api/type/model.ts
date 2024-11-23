@@ -54,6 +54,7 @@ interface Model {
    */
   model_type: string
   user_id: string
+  username: string
   permission_type: 'PUBLIC' | 'PRIVATE'
   /**
    * 基础模型
@@ -75,6 +76,10 @@ interface Model {
    * 元数据
    */
   meta: Dict<any>
+  /**
+   * 模型参数配置
+   */
+  model_params_form: Dict<any>[]
 }
 interface CreateModelRequest {
   /**

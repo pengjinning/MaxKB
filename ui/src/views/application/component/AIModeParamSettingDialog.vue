@@ -6,6 +6,8 @@
     v-model="dialogVisible"
     style="width: 550px"
     append-to-body
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
   >
     <DynamicsForm
       v-model="form_data"
@@ -78,8 +80,10 @@ const reset_default = (model_id: string, application_id?: string) => {
 }
 
 const submit = async () => {
-  emit('refresh', form_data.value)
-  dialogVisible.value = false
+  dynamicsFormRef.value?.validate().then(() => {
+    emit('refresh', form_data.value)
+    dialogVisible.value = false
+  })
 }
 
 defineExpose({ open, reset_default })

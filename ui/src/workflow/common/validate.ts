@@ -1,10 +1,12 @@
 import { WorkflowType } from '@/enums/workflow'
 
-const end_nodes = [
+const end_nodes: Array<string> = [
   WorkflowType.AiChat,
   WorkflowType.Reply,
   WorkflowType.FunctionLib,
-  WorkflowType.FunctionLibCustom
+  WorkflowType.FunctionLibCustom,
+  WorkflowType.ImageUnderstandNode,
+  WorkflowType.Application
 ]
 export class WorkFlowInstance {
   nodes
@@ -119,6 +121,9 @@ export class WorkFlowInstance {
    * @param node 节点
    */
   private is_valid_node(node: any) {
+    if (node.properties.status && node.properties.status === 500) {
+      throw `${node.properties.stepName} 节点不可用`
+    }
     if (node.type === WorkflowType.Condition) {
       const branch_list = node.properties.node_data.branch
       for (const branch of branch_list) {
@@ -126,16 +131,12 @@ export class WorkFlowInstance {
         const edge_list = this.edges.filter((edge) => edge.sourceAnchorId == source_anchor_id)
         if (edge_list.length == 0) {
           throw `${node.properties.stepName} 节点的${branch.type}分支需要连接`
-        } else if (edge_list.length > 1) {
-          throw `${node.properties.stepName} 节点的${branch.type}分支不能连接俩个节点`
         }
       }
     } else {
       const edge_list = this.edges.filter((edge) => edge.sourceNodeId == node.id)
       if (edge_list.length == 0 && !end_nodes.includes(node.type)) {
         throw `${node.properties.stepName} 节点不能当做结束节点`
-      } else if (edge_list.length > 1) {
-        throw `${node.properties.stepName} 节点不能连接俩个节点`
       }
     }
     if (node.properties.status && node.properties.status !== 200) {

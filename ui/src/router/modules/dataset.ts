@@ -12,7 +12,7 @@ const datasetRouter = {
       component: () => import('@/views/dataset/index.vue')
     },
     {
-      path: '/dataset/:type', // create 或者 upload
+      path: '/dataset/:type', // upload
       name: 'UploadDocumentDataset',
       meta: { activeMenu: '/dataset' },
       component: () => import('@/views/dataset/UploadDocumentDataset.vue'),
@@ -43,6 +43,7 @@ const datasetRouter = {
           name: 'Problem',
           meta: {
             icon: 'app-problems',
+            iconActive: 'QuestionFilled',
             title: '问题',
             active: 'problem',
             parentPath: '/dataset/:id',

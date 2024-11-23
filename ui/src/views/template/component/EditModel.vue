@@ -30,7 +30,7 @@
         <el-form-item prop="name" :rules="base_form_data_rule.name">
           <template #label>
             <div class="flex align-center" style="display: inline-flex">
-              <div class="flex-between mr-4">
+              <div class="mr-4">
                 <span>模型名称 </span>
               </div>
               <el-tooltip effect="dark" placement="right">
@@ -80,7 +80,7 @@
           </template>
           <el-select
             v-loading="model_type_loading"
-            @change="list_base_model($event)"
+            @change="list_base_model($event, true)"
             v-model="base_form_data.model_type"
             class="w-full m-2"
             placeholder="请选择模型类型"
@@ -96,16 +96,10 @@
         <el-form-item prop="model_name" :rules="base_form_data_rule.model_name">
           <template #label>
             <div class="flex align-center" style="display: inline-flex">
-              <div class="flex-between mr-4">
+              <div class="mr-4">
                 <span>基础模型 </span>
+                <span class="danger">列表中未列出的模型，直接输入模型名称，回车即可添加</span>
               </div>
-              <el-tooltip effect="dark" placement="right">
-                <template #content>
-                  <p>若下拉选项没有列出想要添加的LLM模型，自定义输入模型名称后回车即可</p>
-                  <p>注意，基础模型需要与供应商的模型名称一致</p>
-                </template>
-                <AppIcon iconName="app-warning" class="app-warning-icon"></AppIcon>
-              </el-tooltip>
             </div>
           </template>
           <el-select
@@ -170,7 +164,7 @@ const model_form_field = ref<Array<FormField>>([])
 const dialogVisible = ref<boolean>(false)
 
 const base_form_data_rule = ref<FormRules>({
-  name: { required: true, trigger: 'blur', message: '模型名不能为空' },
+  name: { required: true, trigger: 'blur', message: '模型名称不能为空' },
   model_type: { required: true, trigger: 'change', message: '模型类型不能为空' },
   model_name: { required: true, trigger: 'change', message: '基础模型不能为空' }
 })
@@ -209,7 +203,10 @@ const getModelForm = (model_name: string) => {
     })
   }
 }
-const list_base_model = (model_type: any) => {
+const list_base_model = (model_type: any, change?: boolean) => {
+  if (change) {
+    base_form_data.value.model_name = ''
+  }
   if (providerValue.value) {
     ModelApi.listBaseModel(providerValue.value.provider, model_type, base_model_loading).then(
       (ok) => {

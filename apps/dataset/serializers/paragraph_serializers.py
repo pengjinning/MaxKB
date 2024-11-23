@@ -9,6 +9,7 @@
 import uuid
 from typing import Dict
 
+from celery_once import AlreadyQueued
 from django.db import transaction
 from django.db.models import QuerySet
 from drf_yasg import openapi
@@ -27,6 +28,7 @@ from embedding.models import SourceType
 from embedding.task.embedding import embedding_by_problem as embedding_by_problem_task, embedding_by_problem, \
     delete_embedding_by_source, enable_embedding_by_paragraph, disable_embedding_by_paragraph, embedding_by_paragraph, \
     delete_embedding_by_paragraph, delete_embedding_by_paragraph_ids, update_embedding_document_id
+from dataset.task import generate_related_by_paragraph_id_list
 
 
 class ParagraphSerializer(serializers.ModelSerializer):
@@ -719,3 +721,23 @@ class ParagraphSerializers(ApiMixin, serializers.Serializer):
                                                   )
                 }
             )
+
+
+    class BatchGenerateRelated(ApiMixin, serializers.Serializer):
+        dataset_id = serializers.UUIDField(required=True, error_messages=ErrMessage.uuid("知识库id"))
+        document_id = serializers.UUIDField(required=True, error_messages=ErrMessage.uuid("文档id"))
+
+        @transaction.atomic
+        def batch_generate_related(self, instance: Dict, with_valid=True):
+            if with_valid:
+                self.is_valid(raise_exception=True)
+            paragraph_id_list = instance.get("paragraph_id_list")
+            model_id = instance.get("model_id")
+            prompt = instance.get("prompt")
+            try:
+                generate_related_by_paragraph_id_list.delay(paragraph_id_list, model_id, prompt)
+            except AlreadyQueued as e:
+                raise AppApiException(500, "任务正在执行中,请勿重复下发")
+
+
+

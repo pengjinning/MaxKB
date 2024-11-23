@@ -199,8 +199,24 @@ const exportDataset: (
   dataset_id: string,
   loading?: Ref<boolean>
 ) => Promise<any> = (dataset_name, dataset_id, loading) => {
-  return exportExcel(dataset_name + '.xls', `dataset/${dataset_id}/export`, undefined, loading)
+  return exportExcel(dataset_name + '.xlsx', `dataset/${dataset_id}/export`, undefined, loading)
 }
+
+
+/**
+ * 获取当前用户可使用的模型列表
+ * @param application_id
+ * @param loading
+ * @query  { query_text: string, top_number: number, similarity: number }
+ * @returns
+ */
+const getDatasetModel: (
+  dataset_id: string,
+  loading?: Ref<boolean>
+) => Promise<Result<Array<any>>> = (dataset_id, loading) => {
+  return get(`${prefix}/${dataset_id}/model`, loading)
+}
+
 
 export default {
   getDataset,
@@ -215,5 +231,6 @@ export default {
   putSyncWebDataset,
   putReEmbeddingDataset,
   postQADataset,
-  exportDataset
+  exportDataset,
+  getDatasetModel
 }

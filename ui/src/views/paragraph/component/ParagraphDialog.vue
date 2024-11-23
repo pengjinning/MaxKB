@@ -5,13 +5,14 @@
     width="80%"
     class="paragraph-dialog"
     destroy-on-close
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
   >
     <el-row v-loading="loading">
       <el-col :span="18">
         <el-scrollbar height="500" wrap-class="paragraph-scrollbar">
           <div class="p-24" style="padding-bottom: 8px">
-            <div class="flex-between mb-16">
-              <div class="bold title align-center">分段内容</div>
+            <div style="position: absolute; right: 20px; top: 20px; ">
               <el-button text @click="isEdit = true" v-if="problemId && !isEdit">
                 <el-icon><EditPen /></el-icon>
               </el-button>
@@ -27,7 +28,7 @@
           </el-button>
         </div>
       </el-col>
-      <el-col :span="6" class="border-l" style="width: 300px;">
+      <el-col :span="6" class="border-l" style="width: 300px">
         <!-- 关联问题 -->
         <ProblemComponent
           :problemId="problemId"
@@ -149,6 +150,4 @@ const handleDebounceClick = debounce(() => {
 
 defineExpose({ open })
 </script>
-<style lang="scss" scope>
-
-</style>
+<style lang="scss" scope></style>

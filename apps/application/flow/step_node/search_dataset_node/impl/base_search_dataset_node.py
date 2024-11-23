@@ -37,7 +37,29 @@ def get_none_result(question):
          'directly_return': ''}, {})
 
 
+def reset_title(title):
+    if title is None or len(title.strip()) == 0:
+        return ""
+    else:
+        return f"#### {title}\n"
+
+
 class BaseSearchDatasetNode(ISearchDatasetStepNode):
+    def save_context(self, details, workflow_manage):
+        result = details.get('paragraph_list', [])
+        dataset_setting = self.node_params_serializer.data.get('dataset_setting')
+        directly_return = '\n'.join(
+            [f"{paragraph.get('title', '')}:{paragraph.get('content')}" for paragraph in result if
+             paragraph.get('is_hit_handling_method')])
+        self.context['paragraph_list'] = result
+        self.context['question'] = details.get('question')
+        self.context['run_time'] = details.get('run_time')
+        self.context['is_hit_handling_method_list'] = [row for row in result if row.get('is_hit_handling_method')]
+        self.context['data'] = '\n'.join(
+            [f"{paragraph.get('title', '')}:{paragraph.get('content')}" for paragraph in
+             result])[0:dataset_setting.get('max_paragraph_char_number', 5000)]
+        self.context['directly_return'] = directly_return
+
     def execute(self, dataset_id_list, dataset_setting, question,
                 exclude_paragraph_id_list=None,
                 **kwargs) -> NodeResult:
@@ -62,9 +84,13 @@ class BaseSearchDatasetNode(ISearchDatasetStepNode):
         result = sorted(result, key=lambda p: p.get('similarity'), reverse=True)
         return NodeResult({'paragraph_list': result,
                            'is_hit_handling_method_list': [row for row in result if row.get('is_hit_handling_method')],
-                           'data': '\n'.join([paragraph.get('content') for paragraph in paragraph_list]),
-                           'directly_return': '\n'.join([paragraph.get('content') for paragraph in result if
-                                                         paragraph.get('is_hit_handling_method')]),
+                           'data': '\n'.join(
+                               [f"{reset_title(paragraph.get('title', ''))}{paragraph.get('content')}" for paragraph in
+                                paragraph_list])[0:dataset_setting.get('max_paragraph_char_number', 5000)],
+                           'directly_return': '\n'.join(
+                               [paragraph.get('content') for paragraph in
+                                result if
+                                paragraph.get('is_hit_handling_method')]),
                            'question': question},
 
                           {})
@@ -79,7 +105,12 @@ class BaseSearchDatasetNode(ISearchDatasetStepNode):
                 **paragraph,
                 'similarity': find_embedding.get('similarity'),
                 'is_hit_handling_method': find_embedding.get('similarity') > paragraph.get(
-                    'directly_return_similarity') and paragraph.get('hit_handling_method') == 'directly_return'
+                    'directly_return_similarity') and paragraph.get('hit_handling_method') == 'directly_return',
+                'update_time': paragraph.get('update_time').strftime("%Y-%m-%d %H:%M:%S"),
+                'create_time': paragraph.get('create_time').strftime("%Y-%m-%d %H:%M:%S"),
+                'id': str(paragraph.get('id')),
+                'dataset_id': str(paragraph.get('dataset_id')),
+                'document_id': str(paragraph.get('document_id'))
             }
 
     @staticmethod

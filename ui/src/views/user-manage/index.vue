@@ -27,7 +27,17 @@
         <el-table-column prop="phone" label="手机号" />
         <el-table-column prop="source" label="用户类型">
           <template #default="{ row }">
-            {{ row.source === 'LOCAL' ? '系统用户' : row.source }}
+            {{
+              row.source === 'LOCAL'
+                ? '系统用户'
+                : row.source === 'wecom'
+                  ? '企业微信'
+                  : row.source === 'lark'
+                    ? '飞书'
+                    : row.source === 'dingtalk'
+                      ? '钉钉'
+                      : row.source
+            }}
           </template>
         </el-table-column>
         <el-table-column label="状态" width="60">
@@ -140,14 +150,21 @@ function createUser() {
     title.value = '创建用户'
     UserDialogRef.value.open()
   } else {
-    common.asyncGetValid(ValidType.User, ValidCount.User, loading).then((res: any) => {
-      if (res?.data) {
-        title.value = '创建用户'
-        UserDialogRef.value.open()
-      } else {
-        MsgAlert('提示', '社区版最多支持 2 个用户，如需拥有更多用户，请升级为专业版。')
-      }
+    MsgConfirm(`提示`, '社区版最多支持 2 个用户，如需拥有更多用户，请升级为专业版。', {
+      cancelButtonText: '确定',
+      confirmButtonText: '购买专业版'
     })
+      .then(() => {
+        window.open('https://maxkb.cn/pricing.html', '_blank')
+      })
+      .catch(() => {
+        common.asyncGetValid(ValidType.User, ValidCount.User, loading).then(async (res: any) => {
+          if (res?.data) {
+            title.value = '创建用户'
+            UserDialogRef.value.open()
+          }
+        })
+      })
   }
 }
 

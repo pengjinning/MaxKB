@@ -53,6 +53,7 @@
 }
 .el-form-item__label {
   font-weight: 400;
+  width: 100%;
 }
 
 .el-form-item__error {
@@ -274,6 +275,12 @@
   padding: 0 14px;
 }
 
+.el-tabs__nav-wrap:after {
+  height: 1px;
+}
+.el-tabs__active-bar {
+  height: 3px;
+}
 .el-drawer {
   .el-drawer__header {
     padding: 16px 24px;

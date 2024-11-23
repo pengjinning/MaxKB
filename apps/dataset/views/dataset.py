@@ -20,6 +20,7 @@ from common.response import result
 from common.response.result import get_page_request_params, get_page_api_response, get_api_response
 from common.swagger_api.common_api import CommonApi
 from dataset.serializers.dataset_serializers import DataSetSerializers
+from setting.serializers.provider_serializers import ModelSerializer
 
 
 class Dataset(APIView):
@@ -220,6 +221,22 @@ class Dataset(APIView):
         def get(self, request: Request, current_page, page_size):
             d = DataSetSerializers.Query(
                 data={'name': request.query_params.get('name', None), 'desc': request.query_params.get("desc", None),
-                      'user_id': str(request.user.id)})
+                      'user_id': str(request.user.id), 'select_user_id': request.query_params.get('select_user_id', None)})
             d.is_valid()
             return result.success(d.page(current_page, page_size))
+
+    class Model(APIView):
+        authentication_classes = [TokenAuth]
+
+        @action(methods=["GET"], detail=False)
+        @has_permissions(ViewPermission(
+            [RoleConstants.ADMIN, RoleConstants.USER],
+            [lambda r, keywords: Permission(group=Group.DATASET, operate=Operate.MANAGE,
+                                            dynamic_tag=keywords.get('dataset_id'))],
+            compare=CompareConstants.AND))
+        def get(self, request: Request, dataset_id: str):
+            return result.success(
+                ModelSerializer.Query(
+                    data={'user_id': request.user.id, 'model_type': 'LLM'}).list(
+                    with_valid=True)
+            )

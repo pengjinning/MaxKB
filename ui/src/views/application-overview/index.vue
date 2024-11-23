@@ -58,8 +58,8 @@
                 />
               </div>
 
-              <div class="mt-4 mb-16 url-height">
-                <span class="vertical-middle lighter break-all">
+              <div class="mt-4 mb-16 url-height flex align-center" style="margin-bottom: 37px">
+                <span class="vertical-middle lighter break-all ellipsis-1">
                   {{ shareUrl }}
                 </span>
 
@@ -95,13 +95,30 @@
                 </el-text>
               </div>
               <div class="mt-4 mb-16 url-height">
-                <a target="_blank" :href="apiUrl" class="vertical-middle lighter break-all">
-                  {{ apiUrl }}
-                </a>
+                <div>
+                  <el-text>API 文档：</el-text
+                  ><el-button
+                    type="primary"
+                    link
+                    @click="toUrl(apiUrl)"
+                    class="vertical-middle lighter break-all"
+                  >
+                    {{ apiUrl }}
+                  </el-button>
+                </div>
+                <div class="flex align-center">
+                  <span class="flex">
+                    <el-text style="width: 80px">Base URL：</el-text>
+                  </span>
 
-                <el-button type="primary" text @click="copyClick(apiUrl)">
-                  <AppIcon iconName="app-copy"></AppIcon>
-                </el-button>
+                  <span class="vertical-middle lighter break-all ellipsis-1">{{
+                    baseUrl + id
+                  }}</span>
+
+                  <el-button type="primary" text @click="copyClick(baseUrl + id)">
+                    <AppIcon iconName="app-copy"></AppIcon>
+                  </el-button>
+                </div>
               </div>
               <div>
                 <el-button @click="openAPIKeyDialog">{{
@@ -139,21 +156,30 @@
         </div>
       </div>
     </el-scrollbar>
-    <EmbedDialog ref="EmbedDialogRef" />
+    <EmbedDialog
+      ref="EmbedDialogRef"
+      :data="detail"
+      :api-input-params="mapToUrlParams(apiInputParams)"
+    />
     <APIKeyDialog ref="APIKeyDialogRef" />
     <LimitDialog ref="LimitDialogRef" @refresh="refresh" />
     <EditAvatarDialog ref="EditAvatarDialogRef" @refresh="refreshIcon" />
-    <DisplaySettingDialog ref="DisplaySettingDialogRef" @refresh="refresh" />
+    <XPackDisplaySettingDialog
+      ref="XPackDisplaySettingDialogRef"
+      @refresh="refresh"
+      v-if="user.isEnterprise()"
+    />
+    <DisplaySettingDialog ref="DisplaySettingDialogRef" @refresh="refresh" v-else />
   </LayoutContainer>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import EmbedDialog from './component/EmbedDialog.vue'
 import APIKeyDialog from './component/APIKeyDialog.vue'
 import LimitDialog from './component/LimitDialog.vue'
 import DisplaySettingDialog from './component/DisplaySettingDialog.vue'
-
+import XPackDisplaySettingDialog from './component/XPackDisplaySettingDialog.vue'
 import EditAvatarDialog from './component/EditAvatarDialog.vue'
 import StatisticsCharts from './component/StatisticsCharts.vue'
 import applicationApi from '@/api/application'
@@ -164,7 +190,7 @@ import { copyClick } from '@/utils/clipboard'
 import { isAppIcon } from '@/utils/application'
 import useStore from '@/stores'
 import { t } from '@/locales'
-const { application } = useStore()
+const { user, application } = useStore()
 const route = useRoute()
 const {
   params: { id }
@@ -172,7 +198,10 @@ const {
 
 const apiUrl = window.location.origin + '/doc/chat/'
 
+const baseUrl = window.location.origin + '/api/application/'
+
 const DisplaySettingDialogRef = ref()
+const XPackDisplaySettingDialogRef = ref()
 const EditAvatarDialogRef = ref()
 const LimitDialogRef = ref()
 const APIKeyDialogRef = ref()
@@ -183,7 +212,12 @@ const detail = ref<any>(null)
 
 const loading = ref(false)
 
-const shareUrl = computed(() => application.location + accessToken.value.access_token)
+const urlParams = computed(() =>
+  mapToUrlParams(apiInputParams.value) ? '?' + mapToUrlParams(apiInputParams.value) : ''
+)
+const shareUrl = computed(
+  () => application.location + accessToken.value.access_token + urlParams.value
+)
 
 const dayOptions = [
   {
@@ -224,9 +258,17 @@ const statisticsLoading = ref(false)
 const statisticsData = ref([])
 
 const showEditIcon = ref(false)
+const apiInputParams = ref([])
 
+function toUrl(url: string) {
+  window.open(url, '_blank')
+}
 function openDisplaySettingDialog() {
-  DisplaySettingDialogRef.value.open(accessToken.value)
+  if (user.isEnterprise()) {
+    XPackDisplaySettingDialogRef.value?.open(accessToken.value, detail.value)
+  } else {
+    DisplaySettingDialogRef.value?.open(accessToken.value)
+  }
 }
 function openEditAvatar() {
   EditAvatarDialogRef.value.open(detail.value)
@@ -307,6 +349,28 @@ function getAccessToken() {
 function getDetail() {
   application.asyncGetApplicationDetail(id, loading).then((res: any) => {
     detail.value = res.data
+    detail.value.work_flow?.nodes
+      ?.filter((v: any) => v.id === 'base-node')
+      .map((v: any) => {
+        apiInputParams.value = v.properties.api_input_field_list
+          ? v.properties.api_input_field_list
+              .map((v: any) => {
+                return {
+                  name: v.variable,
+                  value: v.default_value
+                }
+              })
+          : v.properties.input_field_list
+          ? v.properties.input_field_list
+              .filter((v: any) => v.assignment_method === 'api_input')
+              .map((v: any) => {
+                return {
+                  name: v.variable,
+                  value: v.default_value
+                }
+              })
+          : []
+      })
   })
 }
 
@@ -316,6 +380,16 @@ function refresh() {
 
 function refreshIcon() {
   getDetail()
+}
+
+function mapToUrlParams(map: any[]) {
+  const params = new URLSearchParams()
+
+  map.forEach((item: any) => {
+    params.append(encodeURIComponent(item.name), encodeURIComponent(item.value))
+  })
+
+  return params.toString() // 返回 URL 查询字符串
 }
 
 onMounted(() => {
@@ -331,15 +405,6 @@ onMounted(() => {
     position: absolute;
     right: 16px;
     top: 21px;
-  }
-
-  .edit-avatar {
-    position: relative;
-    .edit-mask {
-      position: absolute;
-      left: 0;
-      background: rgba(0, 0, 0, 0.4);
-    }
   }
 }
 </style>

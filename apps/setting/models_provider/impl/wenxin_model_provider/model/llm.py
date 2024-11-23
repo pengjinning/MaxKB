@@ -26,25 +26,23 @@ class QianfanChatModel(MaxKBBaseModel, QianfanChatEndpoint):
 
     @staticmethod
     def new_instance(model_type, model_name, model_credential: Dict[str, object], **model_kwargs):
-        optional_params = {}
-        if 'max_tokens' in model_kwargs and model_kwargs['max_tokens'] is not None:
-            optional_params['max_output_tokens'] = model_kwargs['max_tokens']
-        if 'temperature' in model_kwargs and model_kwargs['temperature'] is not None:
-            optional_params['temperature'] = model_kwargs['temperature']
+        optional_params = MaxKBBaseModel.filter_optional_params(model_kwargs)
         return QianfanChatModel(model=model_name,
                                 qianfan_ak=model_credential.get('api_key'),
                                 qianfan_sk=model_credential.get('secret_key'),
                                 streaming=model_kwargs.get('streaming', False),
                                 init_kwargs=optional_params)
 
+    usage_metadata: dict = {}
+
     def get_last_generation_info(self) -> Optional[Dict[str, Any]]:
-        return self.__dict__.get('_last_generation_info')
+        return self.usage_metadata
 
     def get_num_tokens_from_messages(self, messages: List[BaseMessage]) -> int:
-        return self.get_last_generation_info().get('prompt_tokens', 0)
+        return self.usage_metadata.get('prompt_tokens', 0)
 
     def get_num_tokens(self, text: str) -> int:
-        return self.get_last_generation_info().get('completion_tokens', 0)
+        return self.usage_metadata.get('completion_tokens', 0)
 
     def _stream(
             self,
@@ -63,7 +61,7 @@ class QianfanChatModel(MaxKBBaseModel, QianfanChatEndpoint):
                 additional_kwargs = msg.additional_kwargs.get("function_call", {})
                 if msg.content == "" or res.get("body").get("is_end"):
                     token_usage = res.get("body").get("usage")
-                    self.__dict__.setdefault('_last_generation_info', {}).update(token_usage)
+                    self.usage_metadata = token_usage
                 chunk = ChatGenerationChunk(
                     text=res["result"],
                     message=AIMessageChunk(  # type: ignore[call-arg]

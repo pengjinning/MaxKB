@@ -1,7 +1,7 @@
 import Components from '@/components'
 import ElementPlus from 'element-plus'
 import * as ElementPlusIcons from '@element-plus/icons-vue'
-
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import { HtmlResize } from '@logicflow/extension'
 
 import { h as lh } from '@logicflow/core'
@@ -19,7 +19,6 @@ class AppNode extends HtmlResize.view {
   constructor(props: any, VueNode: any) {
     super(props)
     this.isMounted = false
-
     this.r = h(VueNode, {
       properties: props.model.properties,
       nodeModel: props.model
@@ -28,7 +27,9 @@ class AppNode extends HtmlResize.view {
     this.app = createApp({
       render: () => this.r
     })
-    this.app.use(ElementPlus)
+    this.app.use(ElementPlus, {
+      locale: zhCn
+    })
     this.app.use(Components)
     this.app.use(directives)
     this.app.use(i18n)
@@ -71,6 +72,12 @@ class AppNode extends HtmlResize.view {
       },
       [
         lh('div', {
+          style: { zindex: 0 },
+          onClick: () => {
+            if (type == 'right') {
+              this.props.model.openNodeMenu(anchorData)
+            }
+          },
           dangerouslySetInnerHTML: {
             __html: isConnect
               ? `<svg width="100%" height="100%" viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -131,6 +138,26 @@ class AppNode extends HtmlResize.view {
 }
 
 class AppNodeModel extends HtmlResize.model {
+  refreshDeges() {
+    // 更新节点连接边的path
+    this.incoming.edges.forEach((edge: any) => {
+      // 调用自定义的更新方案
+      edge.updatePathByAnchor()
+    })
+    this.outgoing.edges.forEach((edge: any) => {
+      edge.updatePathByAnchor()
+    })
+  }
+  set_position(position: { x?: number; y?: number }) {
+    const { x, y } = position
+    if (x) {
+      this.x = x
+    }
+    if (y) {
+      this.y = y
+    }
+    this.refreshDeges()
+  }
   getResizeOutlineStyle() {
     const style = super.getResizeOutlineStyle()
     style.stroke = 'none'
@@ -184,23 +211,37 @@ class AppNodeModel extends HtmlResize.model {
       edge.updatePathByAnchor()
     })
   }
-  setAttributes() {
-    this.width = this.properties?.width || 340
+  get_width() {
+    return this.properties?.width || 340
+  }
 
+  setAttributes() {
+    this.width = this.get_width()
+    const isLoop = (node_id: string, target_node_id: string) => {
+      const up_node_list = this.graphModel.getNodeIncomingNode(node_id)
+      for (const index in up_node_list) {
+        const item = up_node_list[index]
+        if (item.id === target_node_id) {
+          return true
+        } else {
+          const result = isLoop(item.id, target_node_id)
+          if (result) {
+            return true
+          }
+        }
+      }
+      return false
+    }
     const circleOnlyAsTarget = {
       message: '只允许从右边的锚点连出',
       validate: (sourceNode: any, targetNode: any, sourceAnchor: any) => {
         return sourceAnchor.type === 'right'
       }
     }
-
     this.sourceRules.push({
-      message: '只允许连一个节点',
+      message: '不可循环连线',
       validate: (sourceNode: any, targetNode: any, sourceAnchor: any, targetAnchor: any) => {
-        return !this.graphModel.edges.some(
-          (item) =>
-            item.sourceAnchorId === sourceAnchor.id || item.targetAnchorId === targetAnchor.id
-        )
+        return !isLoop(sourceNode.id, targetNode.id)
       }
     })
 
@@ -214,13 +255,14 @@ class AppNodeModel extends HtmlResize.model {
   }
   getDefaultAnchor() {
     const { id, x, y, width } = this
+    const showNode = this.properties.showNode === undefined ? true : this.properties.showNode
     const anchors: any = []
 
     if (this.type !== WorkflowType.Base) {
       if (this.type !== WorkflowType.Start) {
         anchors.push({
           x: x - width / 2 + 10,
-          y: y,
+          y: showNode ? y : y - 15,
           id: `${id}_left`,
           edgeAddable: false,
           type: 'left'
@@ -228,7 +270,7 @@ class AppNodeModel extends HtmlResize.model {
       }
       anchors.push({
         x: x + width / 2 - 10,
-        y: y,
+        y: showNode ? y : y - 15,
         id: `${id}_right`,
         type: 'right'
       })

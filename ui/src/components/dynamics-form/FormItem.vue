@@ -104,16 +104,27 @@ const errMsg = computed(() => {
   return props_info.value.err_msg
     ? props_info.value.err_msg
     : isString(props.formfield.label)
-      ? props.formfield.label
+      ? props.formfield.label + '不能为空'
       : props.formfield.label.label + '不能为空'
 })
-
+/**
+ * 反序列化
+ * @param rule
+ */
+const to_rule = (rule: any) => {
+  if (rule.validator) {
+    let validator = (rule: any, value: string, callback: any) => {}
+    eval(rule.validator)
+    return { ...rule, validator }
+  }
+  return rule
+}
 /**
  * 校验
  */
 const rules = computed(() => {
   return props_info.value.rules
-    ? props_info.value.rules
+    ? props_info.value.rules.map(to_rule)
     : {
         message: errMsg.value,
         trigger: 'blur',

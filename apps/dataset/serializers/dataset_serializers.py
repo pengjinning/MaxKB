@@ -38,7 +38,7 @@ from dataset.models.data_set import DataSet, Document, Paragraph, Problem, Type,
 from dataset.serializers.common_serializers import list_paragraph, MetaSerializer, ProblemParagraphManage, \
     get_embedding_model_by_dataset_id, get_embedding_model_id_by_dataset_id
 from dataset.serializers.document_serializers import DocumentSerializers, DocumentInstanceSerializer
-from dataset.task import sync_web_dataset
+from dataset.task import sync_web_dataset, sync_replace_web_dataset
 from embedding.models import SearchMode
 from embedding.task import embedding_by_dataset, delete_embedding_by_dataset
 from setting.models import AuthOperate
@@ -129,17 +129,21 @@ class DataSetSerializers(serializers.ModelSerializer):
                                      )
 
         user_id = serializers.CharField(required=True)
+        select_user_id = serializers.CharField(required=False)
 
         def get_query_set(self):
             user_id = self.data.get("user_id")
             query_set_dict = {}
             query_set = QuerySet(model=get_dynamics_model(
                 {'temp.name': models.CharField(), 'temp.desc': models.CharField(),
-                 "document_temp.char_length": models.IntegerField(), 'temp.create_time': models.DateTimeField()}))
+                 "document_temp.char_length": models.IntegerField(), 'temp.create_time': models.DateTimeField(),
+                 'temp.user_id': models.CharField(), }))
             if "desc" in self.data and self.data.get('desc') is not None:
                 query_set = query_set.filter(**{'temp.desc__icontains': self.data.get("desc")})
             if "name" in self.data and self.data.get('name') is not None:
                 query_set = query_set.filter(**{'temp.name__icontains': self.data.get("name")})
+            if "select_user_id" in self.data and self.data.get('select_user_id') is not None:
+                query_set = query_set.filter(**{'temp.user_id__exact': self.data.get("select_user_id")})
             query_set = query_set.order_by("-temp.create_time")
             query_set_dict['default_sql'] = query_set
 
@@ -602,7 +606,9 @@ class DataSetSerializers(serializers.ModelSerializer):
                         document_name = child_link.tag.text if child_link.tag is not None and len(
                             child_link.tag.text.strip()) > 0 else child_link.url
                         paragraphs = get_split_model('web.md').parse(response.content)
-                        first = QuerySet(Document).filter(meta__source_url=child_link.url, dataset=dataset).first()
+                        print(child_link.url.strip())
+                        first = QuerySet(Document).filter(meta__source_url=child_link.url.strip(),
+                                                          dataset=dataset).first()
                         if first is not None:
                             # 如果存在,使用文档同步
                             DocumentSerializers.Sync(data={'document_id': first.id}).sync()
@@ -610,7 +616,8 @@ class DataSetSerializers(serializers.ModelSerializer):
                             # 插入
                             DocumentSerializers.Create(data={'dataset_id': dataset.id}).save(
                                 {'name': document_name, 'paragraphs': paragraphs,
-                                 'meta': {'source_url': child_link.url, 'selector': dataset.meta.get('selector')},
+                                 'meta': {'source_url': child_link.url.strip(),
+                                          'selector': dataset.meta.get('selector')},
                                  'type': Type.web}, with_valid=True)
                     except Exception as e:
                         logging.getLogger("max_kb_error").error(f'{str(e)}:{traceback.format_exc()}')
@@ -624,7 +631,7 @@ class DataSetSerializers(serializers.ModelSerializer):
             """
             url = dataset.meta.get('source_url')
             selector = dataset.meta.get('selector') if 'selector' in dataset.meta else None
-            sync_web_dataset.delay(str(dataset.id), url, selector)
+            sync_replace_web_dataset.delay(str(dataset.id), url, selector)
 
         def complete_sync(self, dataset):
             """
@@ -681,7 +688,7 @@ class DataSetSerializers(serializers.ModelSerializer):
                                                                                  document_list)
             workbook = DocumentSerializers.Operate.get_workbook(data_dict, document_dict)
             response = HttpResponse(content_type='application/vnd.ms-excel')
-            response['Content-Disposition'] = 'attachment; filename="dataset.xls"'
+            response['Content-Disposition'] = 'attachment; filename="dataset.xlsx"'
             workbook.save(response)
             return response
 

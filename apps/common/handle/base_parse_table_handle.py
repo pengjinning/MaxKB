@@ -15,5 +15,9 @@ class BaseParseTableHandle(ABC):
         pass
 
     @abstractmethod
-    def handle(self, file, get_buffer):
+    def handle(self, file, get_buffer,save_image):
+        pass
+
+    @abstractmethod
+    def get_content(self, file):
         pass

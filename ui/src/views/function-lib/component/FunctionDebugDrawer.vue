@@ -1,8 +1,8 @@
 <template>
-  <el-drawer v-model="dubugVisible" size="60%" :append-to-body="true">
+  <el-drawer v-model="debugVisible" size="60%" :append-to-body="true">
     <template #header>
       <div class="flex align-center" style="margin-left: -8px">
-        <el-button class="cursor mr-4" link @click.prevent="dubugVisible = false">
+        <el-button class="cursor mr-4" link @click.prevent="debugVisible = false">
           <el-icon :size="20">
             <Back />
           </el-icon>
@@ -12,7 +12,7 @@
     </template>
     <div>
       <div v-if="form.debug_field_list.length > 0" class="mb-16">
-        <h4 class="title-decoration-1 mb-16">输入变量</h4>
+        <h4 class="title-decoration-1 mb-16">输入参数</h4>
         <el-card shadow="never" class="card-never" style="--el-card-padding: 12px">
           <el-form
             ref="FormRef"
@@ -28,7 +28,7 @@
                 :prop="'debug_field_list.' + index + '.value'"
                 :rules="{
                   required: item.is_required,
-                  message: '请输入变量值',
+                  message: '请输入参数值',
                   trigger: 'blur'
                 }"
               >
@@ -40,7 +40,7 @@
                     <el-tag type="info" class="info-tag ml-4">{{ item.type }}</el-tag>
                   </div>
                 </template>
-                <el-input v-model="item.value" placeholder="请输入变量值" />
+                <el-input v-model="item.value" placeholder="请输入参数值" />
               </el-form-item>
             </template>
           </el-form>
@@ -57,7 +57,12 @@
 
         <p class="lighter mb-8">输出</p>
 
-        <el-card class="pre-wrap danger" shadow="never" style="max-height: 350px; overflow: scroll">
+        <el-card
+          :class="isSuccess ? '' : 'danger'"
+          class="pre-wrap"
+          shadow="never"
+          style="max-height: 350px; overflow: scroll"
+        >
           {{ result || '-' }}
         </el-card>
       </div>
@@ -72,7 +77,7 @@ import type { FormInstance } from 'element-plus'
 
 const FormRef = ref()
 const loading = ref(false)
-const dubugVisible = ref(false)
+const debugVisible = ref(false)
 const showResult = ref(false)
 const isSuccess = ref(false)
 const result = ref('')
@@ -83,7 +88,7 @@ const form = ref<any>({
   input_field_list: []
 })
 
-watch(dubugVisible, (bool) => {
+watch(debugVisible, (bool) => {
   if (!bool) {
     showResult.value = false
     isSuccess.value = false
@@ -97,36 +102,20 @@ watch(dubugVisible, (bool) => {
 })
 
 const submit = async (formEl: FormInstance | undefined) => {
-  if (!formEl) {
-    functionLibApi
-      .postFunctionLibDebug(form.value, loading)
-      .then((res) => {
+  const validate = formEl ? formEl.validate() : Promise.resolve()
+  validate.then(() => {
+    functionLibApi.postFunctionLibDebug(form.value, loading).then((res) => {
+      if (res.code === 500) {
+        showResult.value = true
+        isSuccess.value = false
+        result.value = res.message
+      } else {
         showResult.value = true
         isSuccess.value = true
         result.value = res.data
-      })
-      .catch((res) => {
-        showResult.value = true
-        isSuccess.value = false
-        result.value = res.data
-      })
-  } else {
-    await formEl.validate((valid: any) => {
-      if (valid) {
-        functionLibApi.postFunctionLibDebug(form.value, loading).then((res) => {
-          if (res.code === 500) {
-            showResult.value = true
-            isSuccess.value = false
-            result.value = res.message
-          } else {
-            showResult.value = true
-            isSuccess.value = true
-            result.value = res.data
-          }
-        })
       }
     })
-  }
+  })
 }
 
 const open = (data: any) => {
@@ -140,7 +129,7 @@ const open = (data: any) => {
   }
   form.value.code = data.code
   form.value.input_field_list = data.input_field_list
-  dubugVisible.value = true
+  debugVisible.value = true
 }
 
 defineExpose({

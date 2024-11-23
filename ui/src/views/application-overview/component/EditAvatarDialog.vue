@@ -2,6 +2,8 @@
   <el-dialog
     :title="$t('views.applicationOverview.appInfo.EditAvatarDialog.title')"
     v-model="dialogVisible"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
   >
     <el-radio-group v-model="radioType" class="radio-block mb-16">
       <div>
@@ -35,7 +37,7 @@
               action="#"
               :auto-upload="false"
               :show-file-list="false"
-              accept="image/*"
+              accept="image/jpeg, image/png, image/gif"
               :on-change="onChange"
             >
               <el-button icon="Upload" :disabled="radioType !== 'custom'">{{

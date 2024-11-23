@@ -17,7 +17,7 @@ from django.core import validators, signing, cache
 from django.core.mail import send_mail
 from django.core.mail.backends.smtp import EmailBackend
 from django.db import transaction
-from django.db.models import Q, QuerySet
+from django.db.models import Q, QuerySet, Prefetch
 from drf_yasg import openapi
 from rest_framework import serializers
 
@@ -28,12 +28,14 @@ from common.constants.permission_constants import RoleConstants, get_permission_
 from common.db.search import page_search
 from common.exception.app_exception import AppApiException
 from common.mixins.api_mixin import ApiMixin
+from common.models.db_model_manage import DBModelManage
 from common.response.result import get_api_response
 from common.util.common import valid_license
 from common.util.field_message import ErrMessage
 from common.util.lock import lock
 from dataset.models import DataSet, Document, Paragraph, Problem, ProblemParagraphMapping
 from embedding.task import delete_embedding_by_dataset_id_list
+from function_lib.models.function import FunctionLib
 from setting.models import Team, SystemSetting, SettingType, Model, TeamMember, TeamMemberPermission
 from smartdoc.conf import PROJECT_DIR
 from users.models.user import User, password_encrypt, get_user_dynamics_permission
@@ -45,9 +47,10 @@ class SystemSerializer(ApiMixin, serializers.Serializer):
     @staticmethod
     def get_profile():
         version = os.environ.get('MAXKB_VERSION')
+        xpack_cache = DBModelManage.get_model('xpack_cache')
         return {'version': version, 'IS_XPACK': hasattr(settings, 'IS_XPACK'),
-                'XPACK_LICENSE_IS_VALID': (settings.XPACK_LICENSE_IS_VALID if hasattr(settings,
-                                                                                      'XPACK_LICENSE_IS_VALID') else False)}
+                'XPACK_LICENSE_IS_VALID': False if xpack_cache is None else xpack_cache.get('XPACK_LICENSE_IS_VALID',
+                                                                                            False)}
 
     @staticmethod
     def get_response_body_api():
@@ -132,8 +135,8 @@ class RegisterSerializer(ApiMixin, serializers.Serializer):
                                      max_length=20,
                                      min_length=6,
                                      validators=[
-                                         validators.RegexValidator(regex=re.compile("^[a-zA-Z][a-zA-Z0-9_]{5,20}$"),
-                                                                   message="用户名字符数为 6-20 个字符，必须以字母开头，可使用字母、数字、下划线等")
+                                         validators.RegexValidator(regex=re.compile("^.{6,20}$"),
+                                                                   message="用户名字符数为 6-20 个字符")
                                      ])
     password = serializers.CharField(required=True, error_messages=ErrMessage.char("密码"),
                                      validators=[validators.RegexValidator(regex=re.compile(
@@ -376,7 +379,7 @@ class SendEmailSerializer(ApiMixin, serializers.Serializer):
         system_setting = QuerySet(SystemSetting).filter(type=SettingType.EMAIL.value).first()
         if system_setting is None:
             user_cache.delete(code_cache_key_lock)
-            raise AppApiException(1004, "邮箱未设置,请联系管理员设置")
+            raise AppApiException(1004, "邮箱服务未设置，请联系管理员到【邮箱设置】中设置邮箱服务。")
         try:
             connection = EmailBackend(system_setting.meta.get("email_host"),
                                       system_setting.meta.get('email_port'),
@@ -387,7 +390,7 @@ class SendEmailSerializer(ApiMixin, serializers.Serializer):
                                       system_setting.meta.get('email_use_ssl')
                                       )
             # 发送邮件
-            send_mail(f'【MaxKB 智能知识库-{"用户注册" if state == "register" else "修改密码"}】',
+            send_mail(f'【智能知识库问答系统-{"用户注册" if state == "register" else "修改密码"}】',
                       '',
                       html_message=f'{content.replace("${code}", code)}',
                       from_email=system_setting.meta.get('from_email'),
@@ -493,6 +496,40 @@ class UserSerializer(ApiMixin, serializers.ModelSerializer):
             return [{'id': user_model.id, 'username': user_model.username, 'email': user_model.email} for user_model in
                     QuerySet(User).filter(Q(username=email_or_username) | Q(email=email_or_username))]
 
+    def listByType(self, type, user_id):
+        teamIds = TeamMember.objects.filter(user_id=user_id).values_list('id', flat=True)
+        targets = TeamMemberPermission.objects.filter(
+            member_id__in=teamIds,
+            auth_target_type=type,
+            operate__contains=['USE']
+        ).values_list('target', flat=True)
+        prefetch_users = Prefetch('user', queryset=User.objects.only('id', 'username'))
+
+        user_list = []
+        if type == 'DATASET':
+            user_list = DataSet.objects.filter(
+                Q(id__in=targets) | Q(user_id=user_id)
+            ).prefetch_related(prefetch_users).distinct('user_id')
+        elif type == 'APPLICATION':
+            user_list = Application.objects.filter(
+                Q(id__in=targets) | Q(user_id=user_id)
+            ).prefetch_related(prefetch_users).distinct('user_id')
+        elif type == 'FUNCTION':
+            user_list = FunctionLib.objects.filter(
+                Q(permission_type='PUBLIC') | Q(user_id=user_id)
+            ).prefetch_related(prefetch_users).distinct('user_id')
+
+        other_users = [
+            {'id': app.user.id, 'username': app.user.username}
+            for app in user_list if app.user.id != user_id
+        ]
+        users = [
+            {'id': 'all', 'username': '全部'},
+            {'id': user_id, 'username': '我的'}
+        ]
+        users.extend(other_users)
+        return users
+
 
 class UserInstanceSerializer(ApiMixin, serializers.ModelSerializer):
     class Meta:
@@ -590,8 +627,8 @@ class UserManageSerializer(serializers.Serializer):
                                          max_length=20,
                                          min_length=6,
                                          validators=[
-                                             validators.RegexValidator(regex=re.compile("^[a-zA-Z][a-zA-Z0-9_]{5,20}$"),
-                                                                       message="用户名字符数为 6-20 个字符，必须以字母开头，可使用字母、数字、下划线等")
+                                             validators.RegexValidator(regex=re.compile("^.{6,20}$"),
+                                                                       message="用户名字符数为 6-20 个字符")
                                          ])
         password = serializers.CharField(required=True, error_messages=ErrMessage.char("密码"),
                                          validators=[validators.RegexValidator(regex=re.compile(

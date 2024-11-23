@@ -75,12 +75,26 @@ class ModelSerializer(serializers.Serializer):
 
         provider = serializers.CharField(required=False, error_messages=ErrMessage.char("供应商"))
 
+        permission_type = serializers.CharField(required=False, error_messages=ErrMessage.char("权限"))
+
+        create_user = serializers.CharField(required=False, error_messages=ErrMessage.char("创建者"))
+
+
         def list(self, with_valid):
             if with_valid:
                 self.is_valid(raise_exception=True)
             user_id = self.data.get('user_id')
             name = self.data.get('name')
-            model_query_set = QuerySet(Model).filter((Q(user_id=user_id) | Q(permission_type='PUBLIC')))
+            create_user = self.data.get('create_user')
+            if create_user is not None:
+                # 当前用户能查看自己的模型，包括公开和私有的
+                if create_user == user_id:
+                    model_query_set = QuerySet(Model).filter(Q(user_id=create_user))
+                # 当前用户能查看其他人的模型，只能查看公开的
+                else:
+                    model_query_set = QuerySet(Model).filter((Q(user_id=self.data.get('create_user')) & Q(permission_type='PUBLIC')))
+            else:
+                model_query_set = QuerySet(Model).filter((Q(user_id=user_id) | Q(permission_type='PUBLIC')))
             query_params = {}
             if name is not None:
                 query_params['name__contains'] = name
@@ -90,11 +104,14 @@ class ModelSerializer(serializers.Serializer):
                 query_params['model_name'] = self.data.get('model_name')
             if self.data.get('provider') is not None:
                 query_params['provider'] = self.data.get('provider')
+            if self.data.get('permission_type') is not None:
+                query_params['permission_type'] = self.data.get('permission_type')
+
 
             return [
                 {'id': str(model.id), 'provider': model.provider, 'name': model.name, 'model_type': model.model_type,
                  'model_name': model.model_name, 'status': model.status, 'meta': model.meta,
-                 'permission_type': model.permission_type, 'user_id': model.user_id} for model in
+                 'permission_type': model.permission_type, 'user_id': model.user_id, 'username': model.user.username} for model in
                 model_query_set.filter(**query_params).order_by("-create_time")]
 
     class Edit(serializers.Serializer):
@@ -227,7 +244,38 @@ class ModelSerializer(serializers.Serializer):
             model_id = self.data.get('id')
             model = QuerySet(Model).filter(id=model_id).first()
             credential = get_model_credential(model.provider, model.model_type, model.model_name)
-            return credential.get_model_params_setting_form(model.model_name).to_form_list()
+            # 已经保存过的模型参数表单
+            if model.model_params_form is not None and len(model.model_params_form) > 0:
+                return model.model_params_form
+            # 没有保存过的LLM类型的
+            if credential.get_model_params_setting_form(model.model_name) is not None:
+                return credential.get_model_params_setting_form(model.model_name).to_form_list()
+            # 其他的
+            return model.model_params_form
+
+    class ModelParamsForm(serializers.Serializer):
+        id = serializers.UUIDField(required=True, error_messages=ErrMessage.uuid("模型id"))
+
+        user_id = serializers.UUIDField(required=True, error_messages=ErrMessage.uuid("用户id"))
+
+        def is_valid(self, *, raise_exception=False):
+            super().is_valid(raise_exception=True)
+            model = QuerySet(Model).filter(id=self.data.get("id")).first()
+            if model is None:
+                raise AppApiException(500, '模型不存在')
+            if model.permission_type == PermissionType.PRIVATE and self.data.get('user_id') != str(model.user_id):
+                raise AppApiException(500, '没有权限访问到此模型')
+
+        def save_model_params_form(self, model_params_form, with_valid=True):
+            if with_valid:
+                self.is_valid(raise_exception=True)
+            if model_params_form is None:
+                model_params_form = []
+            model_id = self.data.get('id')
+            model = QuerySet(Model).filter(id=model_id).first()
+            model.model_params_form = model_params_form
+            model.save()
+            return True
 
     class Operate(serializers.Serializer):
         id = serializers.UUIDField(required=True, error_messages=ErrMessage.uuid("模型id"))
@@ -272,6 +320,14 @@ class ModelSerializer(serializers.Serializer):
                 dataset_count = DataSet.objects.filter(embedding_mode_id=model_id).count()
                 if dataset_count > 0:
                     raise AppApiException(500, f"该模型关联了{dataset_count} 个知识库，无法删除该模型。")
+            elif model.model_type == 'TTS':
+                dataset_count = Application.objects.filter(tts_model_id=model_id).count()
+                if dataset_count > 0:
+                    raise AppApiException(500, f"该模型关联了{dataset_count} 个应用，无法删除该模型。")
+            elif model.model_type == 'STT':
+                dataset_count = Application.objects.filter(stt_model_id=model_id).count()
+                if dataset_count > 0:
+                    raise AppApiException(500, f"该模型关联了{dataset_count} 个应用，无法删除该模型。")
             model.delete()
             return True
 

@@ -4,6 +4,7 @@
     title="执行详情"
     v-model="dialogVisible"
     destroy-on-close
+    append-to-body
     align-center
     @click.stop
   >
@@ -16,7 +17,12 @@
                 <el-icon class="mr-8 arrow-icon" :class="current === index ? 'rotate-90' : ''"
                   ><CaretRight
                 /></el-icon>
-                <component :is="iconComponent(`${item.type}-icon`)" class="mr-8" :size="24" />
+                <component
+                  :is="iconComponent(`${item.type}-icon`)"
+                  class="mr-8"
+                  :size="24"
+                  :item="item.info"
+                />
                 <h4>{{ item.name }}</h4>
               </div>
               <div class="flex align-center">
@@ -36,10 +42,58 @@
               <div class="mt-12" v-if="current === index">
                 <template v-if="item.status === 200">
                   <!-- 开始 -->
-                  <template v-if="item.type === WorkflowType.Start">
+                  <template
+                    v-if="
+                      item.type === WorkflowType.Start || item.type === WorkflowType.Application
+                    "
+                  >
                     <div class="card-never border-r-4">
                       <h5 class="p-8-12">参数输入</h5>
-                      <div class="p-8-12 border-t-dashed lighter">{{ item.question || '-' }}</div>
+                      <div class="p-8-12 border-t-dashed lighter">
+                        <div class="mb-8">
+                          <span class="color-secondary">用户问题:</span>
+                          {{ item.question || '-' }}
+                        </div>
+                        <div v-for="(f, i) in item.global_fields" :key="i" class="mb-8">
+                          <span class="color-secondary">{{ f.label }}:</span> {{ f.value }}
+                        </div>
+                        <div v-if="item.document_list?.length > 0">
+                          <p class="mb-8 color-secondary">上传的文档:</p>
+
+                          <el-space wrap>
+                            <template v-for="(f, i) in item.document_list" :key="i">
+                              {{ f.name }}
+                              <el-card
+                                shadow="never"
+                                style="--el-card-padding: 8px"
+                                class="file cursor"
+                              >
+                                <div class="flex align-center">
+                                  <img :src="getImgUrl(f && f?.name)" alt="" width="24" />
+                                  <div class="ml-4 ellipsis" :title="f && f?.name">
+                                    {{ f && f?.name }}
+                                  </div>
+                                </div>
+                              </el-card>
+                            </template>
+                          </el-space>
+                        </div>
+                        <div v-if="item.image_list?.length > 0">
+                          <p class="mb-8 color-secondary">上传的图片:</p>
+
+                          <el-space wrap>
+                            <template v-for="(f, i) in item.image_list" :key="i">
+                              <el-image
+                                :src="f.url"
+                                alt=""
+                                fit="cover"
+                                style="width: 40px; height: 40px; display: block"
+                                class="border-r-4"
+                              />
+                            </template>
+                          </el-space>
+                        </div>
+                      </div>
                     </div>
                   </template>
                   <!-- 知识库检索 -->
@@ -78,15 +132,25 @@
                   </template>
                   <!-- AI 对话 / 问题优化-->
                   <template
-                    v-if="item.type == WorkflowType.AiChat || item.type == WorkflowType.Question"
+                    v-if="
+                      item.type == WorkflowType.AiChat ||
+                      item.type == WorkflowType.Question ||
+                      item.type == WorkflowType.Application
+                    "
                   >
-                    <div class="card-never border-r-4">
+                    <div
+                      class="card-never border-r-4"
+                      v-if="item.type !== WorkflowType.Application"
+                    >
                       <h5 class="p-8-12">角色设定 (System)</h5>
                       <div class="p-8-12 border-t-dashed lighter">
                         {{ item.system || '-' }}
                       </div>
                     </div>
-                    <div class="card-never border-r-4 mt-8">
+                    <div
+                      class="card-never border-r-4 mt-8"
+                      v-if="item.type !== WorkflowType.Application"
+                    >
                       <h5 class="p-8-12">历史记录</h5>
                       <div class="p-8-12 border-t-dashed lighter">
                         <template v-if="item.history_message?.length > 0">
@@ -109,7 +173,9 @@
                       </div>
                     </div>
                     <div class="card-never border-r-4 mt-8">
-                      <h5 class="p-8-12">AI 回答</h5>
+                      <h5 class="p-8-12">
+                        {{ item.type == WorkflowType.Application ? '参数输出' : 'AI 回答' }}
+                      </h5>
                       <div class="p-8-12 border-t-dashed lighter">
                         <MdPreview
                           v-if="item.answer"
@@ -142,6 +208,25 @@
                     </div>
                   </template>
 
+                  <!-- 文档内容提取 -->
+                  <template v-if="item.type === WorkflowType.DocumentExtractNode">
+                    <div class="card-never border-r-4">
+                      <h5 class="p-8-12">参数输出</h5>
+                      <div class="p-8-12 border-t-dashed lighter">
+                        <el-scrollbar height="150">
+                          <MdPreview
+                            v-if="item.content"
+                            ref="editorRef"
+                            editorId="preview-only"
+                            :modelValue="item.content"
+                            style="background: none"
+                          />
+                          <template v-else> - </template>
+                        </el-scrollbar>
+                      </div>
+                    </div>
+                  </template>
+
                   <!-- 函数库 -->
                   <template
                     v-if="
@@ -159,6 +244,165 @@
                       <h5 class="p-8-12">输出</h5>
                       <div class="p-8-12 border-t-dashed lighter pre-wrap">
                         {{ item.result || '-' }}
+                      </div>
+                    </div>
+                  </template>
+                  <!-- 多路召回 -->
+                  <template v-if="item.type == WorkflowType.RrerankerNode">
+                    <div class="card-never border-r-4">
+                      <h5 class="p-8-12">检索内容</h5>
+                      <div class="p-8-12 border-t-dashed lighter">{{ item.question || '-' }}</div>
+                    </div>
+                    <div class="card-never border-r-4 mt-8">
+                      <h5 class="p-8-12">重排内容</h5>
+                      <div class="p-8-12 border-t-dashed lighter">
+                        <template v-if="item.document_list?.length > 0">
+                          <template
+                            v-for="(paragraph, paragraphIndex) in item.document_list"
+                            :key="paragraphIndex"
+                          >
+                            <CardBox shadow="never" title="" class="cursor mb-8" :showIcon="false">
+                              <template #description>
+                                <el-scrollbar max-height="150">
+                                  <MdPreview
+                                    ref="editorRef"
+                                    editorId="preview-only"
+                                    :modelValue="paragraph"
+                                  />
+                                </el-scrollbar>
+                              </template>
+                            </CardBox>
+                          </template>
+                        </template>
+                        <template v-else> - </template>
+                      </div>
+                    </div>
+                    <div class="card-never border-r-4 mt-8">
+                      <h5 class="p-8-12">重排结果</h5>
+                      <div class="p-8-12 border-t-dashed lighter">
+                        <template v-if="item.result_list?.length > 0">
+                          <template
+                            v-for="(paragraph, paragraphIndex) in item.result_list"
+                            :key="paragraphIndex"
+                          >
+                            <CardBox
+                              shadow="never"
+                              :title="`分段${paragraphIndex + 1}`"
+                              class="paragraph-source-card cursor mb-8 paragraph-source-card-height"
+                              :showIcon="false"
+                            >
+                              <div class="active-button primary">
+                                {{ paragraph.metadata.relevance_score?.toFixed(3) }}
+                              </div>
+                              <template #description>
+                                <div class="mt-8">
+                                  <el-scrollbar height="150">
+                                    <MdPreview
+                                      ref="editorRef"
+                                      editorId="preview-only"
+                                      :modelValue="paragraph.page_content"
+                                    />
+                                  </el-scrollbar>
+                                </div>
+                              </template>
+                            </CardBox>
+                          </template>
+                        </template>
+                        <template v-else> - </template>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- 表单收集 -->
+                  <template v-if="item.type === WorkflowType.FormNode">
+                    <div class="card-never border-r-4">
+                      <h5 class="p-8-12">参数输入</h5>
+                      <div class="p-8-12 border-t-dashed lighter">
+                        <div v-for="(f, i) in item.form_field_list" :key="i" class="mb-8">
+                          <span class="color-secondary">{{ f.label.label }}:</span>
+                          {{ item.form_data[f.field] }}
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                  <!-- 图片理解 -->
+                  <template v-if="item.type == WorkflowType.ImageUnderstandNode">
+                    <div
+                      class="card-never border-r-4"
+                      v-if="item.type !== WorkflowType.Application"
+                    >
+                      <h5 class="p-8-12">角色设定 (System)</h5>
+                      <div class="p-8-12 border-t-dashed lighter">
+                        {{ item.system || '-' }}
+                      </div>
+                    </div>
+                    <div
+                      class="card-never border-r-4 mt-8"
+                      v-if="item.type !== WorkflowType.Application"
+                    >
+                      <h5 class="p-8-12">历史记录</h5>
+                      <div class="p-8-12 border-t-dashed lighter">
+                        <template v-if="item.history_message?.length > 0">
+                          <p
+                            class="mt-4 mb-4"
+                            v-for="(history, historyIndex) in item.history_message"
+                            :key="historyIndex"
+                          >
+                            <span class="color-secondary mr-4">{{ history.role }}:</span>
+
+                            <span v-if="Array.isArray(history.content)">
+                              <template v-for="(h, i) in history.content" :key="i">
+                                <el-image
+                                  v-if="h.type === 'image_url'"
+                                  :src="h.image_url.url"
+                                  alt=""
+                                  fit="cover"
+                                  style="width: 40px; height: 40px; display: block"
+                                  class="border-r-4"
+                                />
+                                <span v-else>{{ h.text }}</span>
+                              </template>
+                            </span>
+
+                            <span v-else>{{ history.content }}</span>
+                          </p>
+                        </template>
+                        <template v-else> - </template>
+                      </div>
+                    </div>
+                    <div class="card-never border-r-4 mt-8">
+                      <h5 class="p-8-12">本次对话</h5>
+                      <div class="p-8-12 border-t-dashed lighter pre-wrap">
+                        <div v-if="item.image_list?.length > 0">
+                          <p class="mb-8 color-secondary">图片:</p>
+                          <el-space wrap>
+                            <template v-for="(f, i) in item.image_list" :key="i">
+                              <el-image
+                                :src="f.url"
+                                alt=""
+                                fit="cover"
+                                style="width: 40px; height: 40px; display: block"
+                                class="border-r-4"
+                              />
+                            </template>
+                          </el-space>
+                          {{ item.question || '-' }}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card-never border-r-4 mt-8">
+                      <h5 class="p-8-12">
+                        {{ item.type == WorkflowType.Application ? '参数输出' : 'AI 回答' }}
+                      </h5>
+                      <div class="p-8-12 border-t-dashed lighter">
+                        <MdPreview
+                          v-if="item.answer"
+                          ref="editorRef"
+                          editorId="preview-only"
+                          :modelValue="item.answer"
+                          style="background: none"
+                        />
+                        <template v-else> - </template>
                       </div>
                     </div>
                   </template>
@@ -184,6 +428,7 @@ import ParagraphCard from './component/ParagraphCard.vue'
 import { arraySort } from '@/utils/utils'
 import { iconComponent } from '@/workflow/icons/utils'
 import { WorkflowType } from '@/enums/workflow'
+import { getImgUrl } from '@/utils/utils'
 
 const dialogVisible = ref(false)
 const detail = ref<any[]>([])
@@ -198,7 +443,7 @@ watch(dialogVisible, (bool) => {
 
 const open = (data: any) => {
   detail.value = cloneDeep(data)
-
+  console.log(detail.value)
   dialogVisible.value = true
 }
 onBeforeUnmount(() => {

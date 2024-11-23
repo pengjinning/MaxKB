@@ -1,4 +1,5 @@
 import { WorkflowType } from '@/enums/workflow'
+import { t } from '@/locales'
 
 export const startNode = {
   id: WorkflowType.Start,
@@ -29,14 +30,16 @@ export const baseNode = {
   type: WorkflowType.Base,
   x: 200,
   y: 270,
+  text: '',
   properties: {
+    width: 420,
     height: 200,
     stepName: '基本信息',
+    input_field_list: [],
     node_data: {
       name: '',
       desc: '',
-      prologue:
-        '您好，我是 MaxKB 小助手，您可以向我提出 MaxKB 使用问题。\n- MaxKB 主要功能有什么？\n- MaxKB 支持哪些大语言模型？\n- MaxKB 支持哪些文档类型？'
+      prologue: t('views.application.prompt.defaultPrologue')
     },
     config: {}
   }
@@ -53,6 +56,7 @@ export const aiChatNode = {
   type: WorkflowType.AiChat,
   text: '与 AI 大模型进行对话',
   label: 'AI 对话',
+  height: 340,
   properties: {
     stepName: 'AI 对话',
     config: {
@@ -72,6 +76,7 @@ export const searchDatasetNode = {
   type: WorkflowType.SearchDataset,
   text: '关联知识库，查找与问题相关的分段',
   label: '知识库检索',
+  height: 355,
   properties: {
     stepName: '知识库检索',
     config: {
@@ -94,6 +99,7 @@ export const questionNode = {
   type: WorkflowType.Question,
   text: '根据历史聊天记录优化完善当前问题，更利于匹配知识库分段',
   label: '问题优化',
+  height: 345,
   properties: {
     stepName: '问题优化',
     config: {
@@ -110,6 +116,7 @@ export const conditionNode = {
   type: WorkflowType.Condition,
   text: '根据不同条件执行不同的节点',
   label: '判断器',
+  height: 175,
   properties: {
     width: 600,
     stepName: '判断器',
@@ -127,6 +134,7 @@ export const replyNode = {
   type: WorkflowType.Reply,
   text: '指定回复内容，引用变量会转换为字符串进行输出',
   label: '指定回复',
+  height: 210,
   properties: {
     stepName: '指定回复',
     config: {
@@ -139,7 +147,97 @@ export const replyNode = {
     }
   }
 }
-export const menuNodes = [aiChatNode, searchDatasetNode, questionNode, conditionNode, replyNode]
+export const rerankerNode = {
+  type: WorkflowType.RrerankerNode,
+  text: '使用重排模型对多个知识库的检索结果进行二次召回',
+  label: '多路召回',
+  height: 252,
+  properties: {
+    stepName: '多路召回',
+    config: {
+      fields: [
+        {
+          label: '重排结果列表',
+          value: 'result_list'
+        },
+        {
+          label: '重排结果',
+          value: 'result'
+        }
+      ]
+    }
+  }
+}
+export const formNode = {
+  type: WorkflowType.FormNode,
+  text: '在问答过程中用于收集用户信息，可以根据收集到表单数据执行后续流程',
+  label: '表单收集',
+  height: 252,
+  properties: {
+    width: 600,
+    stepName: '表单收集',
+    node_data: {
+      is_result: true,
+      form_field_list: [],
+      form_content_format: `你好，请先填写下面表单内容：
+{{form}}
+填写后请点击【提交】按钮进行提交。`
+    },
+    config: {
+      fields: [
+        {
+          label: '表单全部内容',
+          value: 'form_data'
+        }
+      ]
+    }
+  }
+}
+export const documentExtractNode = {
+  type: WorkflowType.DocumentExtractNode,
+  text: '提取文档中的内容',
+  label: '文档内容提取',
+  height: 252,
+  properties: {
+    stepName: '文档内容提取',
+    config: {
+      fields: [
+        {
+          label: '文件内容',
+          value: 'content'
+        }
+      ]
+    }
+  }
+}
+export const imageUnderstandNode = {
+  type: WorkflowType.ImageUnderstandNode,
+  text: '识别出图片中的对象、场景等信息回答用户问题',
+  label: '图片理解',
+  height: 252,
+  properties: {
+    stepName: '图片理解',
+    config: {
+      fields: [
+        {
+          label: 'AI 回答内容',
+          value: 'answer'
+        }
+      ]
+    }
+  }
+}
+export const menuNodes = [
+  aiChatNode,
+  searchDatasetNode,
+  questionNode,
+  conditionNode,
+  replyNode,
+  rerankerNode,
+  documentExtractNode,
+  imageUnderstandNode,
+  formNode
+]
 
 /**
  * 自定义函数配置数据
@@ -148,6 +246,7 @@ export const functionNode = {
   type: WorkflowType.FunctionLibCustom,
   text: '通过执行自定义脚本，实现数据处理',
   label: '自定义函数',
+  height: 260,
   properties: {
     stepName: '自定义函数',
     config: {
@@ -164,8 +263,27 @@ export const functionLibNode = {
   type: WorkflowType.FunctionLib,
   text: '通过执行自定义脚本，实现数据处理',
   label: '自定义函数',
+  height: 170,
   properties: {
     stepName: '自定义函数',
+    config: {
+      fields: [
+        {
+          label: '结果',
+          value: 'result'
+        }
+      ]
+    }
+  }
+}
+
+export const applicationNode = {
+  type: WorkflowType.Application,
+  text: '应用节点',
+  label: '应用节点',
+  height: 260,
+  properties: {
+    stepName: '应用节点',
     config: {
       fields: [
         {
@@ -186,12 +304,12 @@ export const compareList = [
   { value: 'ge', label: '大于等于' },
   { value: 'gt', label: '大于' },
   { value: 'le', label: '小于等于' },
+  { value: 'lt', label: '小于' },
   { value: 'len_eq', label: '长度等于' },
   { value: 'len_ge', label: '长度大于等于' },
   { value: 'len_gt', label: '长度大于' },
   { value: 'len_le', label: '长度小于等于' },
-  { value: 'len_lt', label: '长度小于' },
-  { value: 'lt', label: '小于' }
+  { value: 'len_lt', label: '长度小于' }
 ]
 
 export const nodeDict: any = {
@@ -203,7 +321,12 @@ export const nodeDict: any = {
   [WorkflowType.Start]: startNode,
   [WorkflowType.Reply]: replyNode,
   [WorkflowType.FunctionLib]: functionLibNode,
-  [WorkflowType.FunctionLibCustom]: functionNode
+  [WorkflowType.FunctionLibCustom]: functionNode,
+  [WorkflowType.RrerankerNode]: rerankerNode,
+  [WorkflowType.FormNode]: formNode,
+  [WorkflowType.Application]: applicationNode,
+  [WorkflowType.DocumentExtractNode]: documentExtractNode,
+  [WorkflowType.ImageUnderstandNode]: imageUnderstandNode
 }
 export function isWorkFlow(type: string | undefined) {
   return type === 'WORK_FLOW'

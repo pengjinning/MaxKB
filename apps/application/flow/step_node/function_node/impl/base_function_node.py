@@ -24,7 +24,7 @@ def write_context(step_variable: Dict, global_variable: Dict, node, workflow):
     if step_variable is not None:
         for key in step_variable:
             node.context[key] = step_variable[key]
-        if workflow.is_result() and 'result' in step_variable:
+        if workflow.is_result(node, NodeResult(step_variable, global_variable)) and 'result' in step_variable:
             result = str(step_variable['result']) + '\n'
             yield result
             workflow.answer += result
@@ -78,6 +78,10 @@ def convert_value(name: str, value, _type, is_required, source, node):
 
 
 class BaseFunctionNodeNode(IFunctionNode):
+    def save_context(self, details, workflow_manage):
+        self.context['result'] = details.get('result')
+        self.answer_text = details.get('result')
+
     def execute(self, input_field_list, code, **kwargs) -> NodeResult:
         params = {field.get('name'): convert_value(field.get('name'), field.get('value'), field.get('type'),
                                                    field.get('is_required'), field.get('source'), self)

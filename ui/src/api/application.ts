@@ -1,9 +1,10 @@
 import { Result } from '@/request/Result'
-import { get, post, postStream, del, put } from '@/request/index'
+import { get, post, postStream, del, put, request, download } from '@/request/index'
 import type { pageRequest } from '@/api/type/common'
 import type { ApplicationFormType } from '@/api/type/application'
 import { type Ref } from 'vue'
 import type { FormField } from '@/components/dynamics-form/type'
+
 const prefix = '/application'
 
 /**
@@ -121,11 +122,17 @@ const putAccessToken: (
  "access_token": "string"
  }
  */
-const postAppAuthentication: (access_token: string, loading?: Ref<boolean>) => Promise<any> = (
-  access_token,
-  loading
-) => {
-  return post(`${prefix}/authentication`, { access_token }, undefined, loading)
+const postAppAuthentication: (
+  access_token: string,
+  loading?: Ref<boolean>,
+  authentication_value?: any
+) => Promise<any> = (access_token, loading, authentication_value) => {
+  return post(
+    `${prefix}/authentication`,
+    { access_token: access_token, authentication_value },
+    undefined,
+    loading
+  )
 }
 
 /**
@@ -238,6 +245,56 @@ const getApplicationModel: (
 }
 
 /**
+ * 获取当前用户可使用的模型列表
+ * @param application_id
+ * @param loading
+ * @query  { query_text: string, top_number: number, similarity: number }
+ * @returns
+ */
+const getApplicationRerankerModel: (
+  application_id: string,
+  loading?: Ref<boolean>
+) => Promise<Result<Array<any>>> = (application_id, loading) => {
+  return get(`${prefix}/${application_id}/model`, { model_type: 'RERANKER' }, loading)
+}
+
+/**
+ * 获取当前用户可使用的模型列表
+ * @param application_id
+ * @param loading
+ * @query  { query_text: string, top_number: number, similarity: number }
+ * @returns
+ */
+const getApplicationSTTModel: (
+  application_id: string,
+  loading?: Ref<boolean>
+) => Promise<Result<Array<any>>> = (application_id, loading) => {
+  return get(`${prefix}/${application_id}/model`, { model_type: 'STT' }, loading)
+}
+
+/**
+ * 获取当前用户可使用的模型列表
+ * @param application_id
+ * @param loading
+ * @query  { query_text: string, top_number: number, similarity: number }
+ * @returns
+ */
+const getApplicationTTSModel: (
+  application_id: string,
+  loading?: Ref<boolean>
+) => Promise<Result<Array<any>>> = (application_id, loading) => {
+  return get(`${prefix}/${application_id}/model`, { model_type: 'TTS' }, loading)
+}
+
+const getApplicationImageModel: (
+  application_id: string,
+  loading?: Ref<boolean>
+) => Promise<Result<Array<any>>> = (application_id, loading) => {
+  return get(`${prefix}/${application_id}/model`, { model_type: 'IMAGE' }, loading)
+}
+
+
+/**
  * 发布应用
  * @param 参数
  */
@@ -259,6 +316,18 @@ const listFunctionLib: (application_id: String, loading?: Ref<boolean>) => Promi
   loading
 ) => {
   return get(`${prefix}/${application_id}/function_lib`, undefined, loading)
+}
+/**
+ * 获取当前人的所有应用列表
+ * @param application_id 应用id
+ * @param loading
+ * @returns
+ */
+export const getApplicationList: (
+  application_id: string,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, loading) => {
+  return get(`${prefix}/${application_id}/application`, undefined, loading)
 }
 /**
  * 获取应用所属的函数库
@@ -288,6 +357,145 @@ const getModelParamsForm: (
 ) => Promise<Result<Array<FormField>>> = (application_id, model_id, loading) => {
   return get(`${prefix}/${application_id}/model_params_form/${model_id}`, undefined, loading)
 }
+
+/**
+ * 上传文档图片附件
+ */
+const uploadFile: (
+  application_id: String,
+  chat_id: String,
+  data: any,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, chat_id, data, loading) => {
+  return post(`${prefix}/${application_id}/chat/${chat_id}/upload_file`, data, undefined, loading)
+}
+
+
+/**
+ * 语音转文本
+ */
+const postSpeechToText: (
+  application_id: String,
+  data: any,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, data, loading) => {
+  return post(`${prefix}/${application_id}/speech_to_text`, data, undefined, loading)
+}
+
+/**
+ * 文本转语音
+ */
+const postTextToSpeech: (
+  application_id: String,
+  data: any,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, data, loading) => {
+  return download(`${prefix}/${application_id}/text_to_speech`, 'post', data, undefined, loading)
+}
+
+/**
+ * 播放测试文本
+ */
+const playDemoText: (
+  application_id: String,
+  data: any,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, data, loading) => {
+  return download(`${prefix}/${application_id}/play_demo_text`, 'post', data, undefined, loading)
+}
+/**
+ * 获取平台状态
+ */
+const getPlatformStatus: (application_id: string) => Promise<Result<any>> = (application_id) => {
+  return get(`/platform/${application_id}/status`)
+}
+/**
+ * 获取平台配置
+ */
+const getPlatformConfig: (application_id: string, type: string) => Promise<Result<any>> = (
+  application_id,
+  type
+) => {
+  return get(`/platform/${application_id}/${type}`)
+}
+/**
+ * 更新平台配置
+ */
+const updatePlatformConfig: (
+  application_id: string,
+  type: string,
+  data: any
+) => Promise<Result<any>> = (application_id, type, data) => {
+  return post(`/platform/${application_id}/${type}`, data)
+}
+/**
+ * 更新平台状态
+ */
+const updatePlatformStatus: (application_id: string, data: any) => Promise<Result<any>> = (
+  application_id,
+  data
+) => {
+  return post(`/platform/${application_id}/status`, data)
+}
+/**
+ * 验证密码
+ */
+const validatePassword: (
+  application_id: string,
+  password: string,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, password, loading) => {
+  return get(`/application/${application_id}/auth/${password}`, undefined, loading)
+}
+
+/**
+ * workflow历史版本
+ */
+const getWorkFlowVersion: (
+  application_id: string,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, loading) => {
+  return get(`/application/${application_id}/work_flow_version`, undefined, loading)
+}
+
+/**
+ * workflow历史版本详情
+ */
+const getWorkFlowVersionDetail: (
+  application_id: string,
+  application_version_id: string,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, application_version_id, loading) => {
+  return get(
+    `/application/${application_id}/work_flow_version/${application_version_id}`,
+    undefined,
+    loading
+  )
+}
+/**
+ * 修改workflow历史版本
+ */
+const putWorkFlowVersion: (
+  application_id: string,
+  application_version_id: string,
+  data: any,
+  loading?: Ref<boolean>
+) => Promise<Result<any>> = (application_id, application_version_id, data, loading) => {
+  return put(
+    `/application/${application_id}/work_flow_version/${application_version_id}`,
+    data,
+    undefined,
+    loading
+  )
+}
+
+const getUserList: (type: string, loading?: Ref<boolean>) => Promise<Result<any>> = (
+  type,
+  loading
+) => {
+  return get(`/user/list/${type}`, undefined, loading)
+}
+
 export default {
   getAllAppilcation,
   getApplication,
@@ -310,5 +518,23 @@ export default {
   postWorkflowChatOpen,
   listFunctionLib,
   getFunctionLib,
-  getModelParamsForm
+  getModelParamsForm,
+  getApplicationRerankerModel,
+  getApplicationSTTModel,
+  getApplicationTTSModel,
+  getApplicationImageModel,
+  postSpeechToText,
+  postTextToSpeech,
+  getPlatformStatus,
+  getPlatformConfig,
+  updatePlatformConfig,
+  updatePlatformStatus,
+  validatePassword,
+  getWorkFlowVersion,
+  getWorkFlowVersionDetail,
+  putWorkFlowVersion,
+  playDemoText,
+  getUserList,
+  getApplicationList,
+  uploadFile
 }

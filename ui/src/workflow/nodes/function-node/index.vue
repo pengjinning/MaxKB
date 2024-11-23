@@ -2,7 +2,7 @@
   <NodeContainer :nodeModel="nodeModel">
     <h5 class="title-decoration-1 mb-16">节点设置</h5>
     <div class="flex-between">
-      <h5 class="lighter mb-8">输入变量</h5>
+      <h5 class="lighter mb-8">输入参数</h5>
       <el-button link type="primary" @click="openAddDialog()">
         <el-icon class="mr-4"><Plus /></el-icon> 添加
       </el-button>
@@ -23,7 +23,7 @@
               :prop="'input_field_list.' + index + '.value'"
               :rules="{
                 required: item.is_required,
-                message: '请输入变量值',
+                message: '请输入参数值',
                 trigger: 'blur'
               }"
             >
@@ -55,11 +55,11 @@
                 ref="nodeCascaderRef"
                 :nodeModel="nodeModel"
                 class="w-full"
-                placeholder="请选择变量"
+                placeholder="请选择参数"
                 v-model="item.value"
                 :width="100"
               />
-              <el-input v-else v-model="item.value" placeholder="请输入变量值" />
+              <el-input v-else v-model="item.value" placeholder="请输入参数值" />
             </el-form-item>
           </template>
         </div>
@@ -197,8 +197,8 @@ function deleteField(index: any) {
 function refreshFieldList(data: any) {
   const list = cloneDeep(props.nodeModel.properties.node_data.input_field_list)
   const obj = {
-    value: data.source === 'reference' ? [] : '',
-    ...data
+    ...data,
+    value: data.source === 'reference' ? [] : ''
   }
   if (currentIndex.value !== null) {
     list.splice(currentIndex.value, 1, obj)
@@ -221,4 +221,13 @@ onMounted(() => {
   }, 100)
 })
 </script>
-<style lang="scss"></style>
+<style lang="scss">
+.function-CodemirrorEditor__footer {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+}
+.function-CodemirrorEditor {
+  position: relative;
+}
+</style>

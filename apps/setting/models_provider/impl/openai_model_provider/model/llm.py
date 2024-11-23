@@ -6,9 +6,11 @@
     @date：2024/4/18 15:28
     @desc:
 """
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 
+from langchain_core.language_models import LanguageModelInput
 from langchain_core.messages import BaseMessage, get_buffer_string
+from langchain_core.runnables import RunnableConfig
 from langchain_openai.chat_models import ChatOpenAI
 
 from common.config.tokenizer_manage_config import TokenizerManage
@@ -28,18 +30,12 @@ class OpenAIChatModel(MaxKBBaseModel, ChatOpenAI):
 
     @staticmethod
     def new_instance(model_type, model_name, model_credential: Dict[str, object], **model_kwargs):
-        optional_params = {}
-        if 'max_tokens' in model_kwargs and model_kwargs['max_tokens'] is not None:
-            optional_params['max_tokens'] = model_kwargs['max_tokens']
-        if 'temperature' in model_kwargs and model_kwargs['temperature'] is not None:
-            optional_params['temperature'] = model_kwargs['temperature']
+        optional_params = MaxKBBaseModel.filter_optional_params(model_kwargs)
         azure_chat_open_ai = OpenAIChatModel(
             model=model_name,
             openai_api_base=model_credential.get('api_base'),
             openai_api_key=model_credential.get('api_key'),
             **optional_params,
-            streaming=True,
-            stream_usage=True,
             custom_get_token_ids=custom_get_token_ids
         )
         return azure_chat_open_ai

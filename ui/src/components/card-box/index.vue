@@ -2,19 +2,26 @@
   <el-card shadow="hover" class="card-box" @mouseenter="cardEnter()" @mouseleave="cardLeave()">
     <div class="card-header">
       <slot name="header">
-        <div class="title flex align-center">
+        <div class="title flex" :class="slots.subTitle ? '' : 'align-center'">
           <slot name="icon">
             <AppAvatar v-if="showIcon" class="mr-12 avatar-blue" shape="square" :size="32">
               <img src="@/assets/icon_document.svg" style="width: 58%" alt="" />
             </AppAvatar>
           </slot>
-          <auto-tooltip :content="title" style="width: 65%">
-            {{ title }}
-          </auto-tooltip>
+          <div style="width: 90%">
+            <auto-tooltip :content="title" style="width: 65%; height: 22px">
+              {{ title }}
+            </auto-tooltip>
+            <slot name="subTitle"> </slot>
+          </div>
         </div>
       </slot>
     </div>
-    <div class="description break-all mt-12" v-if="$slots.description || description">
+    <div
+      class="description break-all"
+      :class="slots.subTitle ? 'mt-24' : 'mt-12'"
+      v-if="$slots.description || description"
+    >
       <slot name="description">
         <div class="content">
           {{ description }}
@@ -22,7 +29,9 @@
       </slot>
     </div>
     <slot />
-    <slot name="mouseEnter" v-if="$slots.mouseEnter && show" />
+    <div @mouseenter="subHoveredEnter">
+      <slot name="mouseEnter" v-if="$slots.mouseEnter && show" />
+    </div>
     <div class="card-footer" v-if="$slots.footer">
       <slot name="footer" />
     </div>
@@ -52,11 +61,19 @@ const props = withDefaults(
 )
 
 const show = ref(false)
+// card上面存在dropdown菜单
+const subHovered = ref(false)
 function cardEnter() {
   show.value = true
+  subHovered.value = false
 }
+
 function cardLeave() {
-  show.value = false
+  show.value = subHovered.value
+}
+
+function subHoveredEnter() {
+  subHovered.value = true
 }
 </script>
 <style lang="scss" scoped>
@@ -66,6 +83,9 @@ function cardLeave() {
   min-height: var(--card-min-height);
   min-width: var(--card-min-width);
   border-radius: 8px;
+  .title {
+    height: 20px;
+  }
   .description {
     color: var(--app-text-color-secondary);
     line-height: 22px;

@@ -23,6 +23,31 @@ class ChatClientHistoryApi(ApiMixin):
                 ]
 
 
+class OpenAIChatApi(ApiMixin):
+    @staticmethod
+    def get_request_body_api():
+        return openapi.Schema(type=openapi.TYPE_OBJECT,
+                              required=['message'],
+                              properties={
+                                  'messages': openapi.Schema(type=openapi.TYPE_ARRAY, title="问题", description="问题",
+                                                             items=openapi.Schema(type=openapi.TYPE_OBJECT,
+                                                                                  required=['role', 'content'],
+                                                                                  properties={
+                                                                                      'content': openapi.Schema(
+                                                                                          type=openapi.TYPE_STRING,
+                                                                                          title="问题内容", default=''),
+                                                                                      'role': openapi.Schema(
+                                                                                          type=openapi.TYPE_STRING,
+                                                                                          title='角色', default="user")
+                                                                                  }
+                                                                                  )),
+                                  'chat_id': openapi.Schema(type=openapi.TYPE_STRING, title="对话id"),
+                                  're_chat': openapi.Schema(type=openapi.TYPE_BOOLEAN, title="重新生成", default=False),
+                                  'stream': openapi.Schema(type=openapi.TYPE_BOOLEAN, title="流式输出", default=True)
+
+                              })
+
+
 class ChatApi(ApiMixin):
     @staticmethod
     def get_request_body_api():
@@ -241,6 +266,38 @@ class ImproveApi(ApiMixin):
 
             }
         )
+
+    @staticmethod
+    def get_request_body_api_post():
+        return openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['dataset_id', 'document_id', 'chat_ids'],
+            properties={
+                'dataset_id': openapi.Schema(type=openapi.TYPE_STRING, title="知识库id",
+                                             description="知识库id"),
+                'document_id': openapi.Schema(type=openapi.TYPE_STRING, title="文档id",
+                                              description="文档id"),
+                'chat_ids': openapi.Schema(type=openapi.TYPE_ARRAY, title="会话id列表",
+                                           description="会话id列表",
+                                           items=openapi.Schema(type=openapi.TYPE_STRING))
+
+            }
+        )
+
+    @staticmethod
+    def get_request_params_api_post():
+        return [openapi.Parameter(name='application_id',
+                                  in_=openapi.IN_PATH,
+                                  type=openapi.TYPE_STRING,
+                                  required=True,
+                                  description='应用id'),
+                openapi.Parameter(name='dataset_id',
+                                  in_=openapi.IN_PATH,
+                                  type=openapi.TYPE_STRING,
+                                  required=True,
+                                  description='知识库id'),
+
+                ]
 
 
 class VoteApi(ApiMixin):

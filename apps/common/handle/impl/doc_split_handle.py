@@ -10,9 +10,11 @@ import io
 import re
 import traceback
 import uuid
+from functools import reduce
 from typing import List
 
 from docx import Document, ImagePart
+from docx.oxml import ns
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
@@ -27,9 +29,13 @@ default_pattern_list = [re.compile('(?<=^)# .*|(?<=\\n)# .*'),
                         re.compile("(?<=\\n)(?<!#)##### (?!#).*|(?<=^)(?<!#)##### (?!#).*"),
                         re.compile("(?<=\\n)(?<!#)###### (?!#).*|(?<=^)(?<!#)###### (?!#).*")]
 
+old_docx_nsmap = {'v': 'urn:schemas-microsoft-com:vml'}
+combine_nsmap = {**ns.nsmap, **old_docx_nsmap}
+
 
 def image_to_mode(image, doc: Document, images_list, get_image_id):
-    for img_id in image.xpath('.//a:blip/@r:embed'):  # 获取图片id
+    image_ids = image['get_image_id_handle'](image.get('image'))
+    for img_id in image_ids:  # 获取图片id
         part = doc.part.related_parts[img_id]  # 根据图片id获取对应的图片
         if isinstance(part, ImagePart):
             image_uuid = get_image_id(img_id)
@@ -39,13 +45,32 @@ def image_to_mode(image, doc: Document, images_list, get_image_id):
             return f'![](/api/image/{image_uuid})'
 
 
+def get_paragraph_element_images(paragraph_element, doc: Document, images_list, get_image_id):
+    images_xpath_list = [(".//pic:pic", lambda img: img.xpath('.//a:blip/@r:embed')),
+                         (".//w:pict", lambda img: img.xpath('.//v:imagedata/@r:id', namespaces=combine_nsmap))]
+    images = []
+    for images_xpath, get_image_id_handle in images_xpath_list:
+        try:
+            _images = paragraph_element.xpath(images_xpath)
+            if _images is not None and len(_images) > 0:
+                for image in _images:
+                    images.append({'image': image, 'get_image_id_handle': get_image_id_handle})
+        except Exception as e:
+            pass
+    return images
+
+
+def images_to_string(images, doc: Document, images_list, get_image_id):
+    return "".join(
+        [item for item in [image_to_mode(image, doc, images_list, get_image_id) for image in images] if
+         item is not None])
+
+
 def get_paragraph_element_txt(paragraph_element, doc: Document, images_list, get_image_id):
     try:
-        images = paragraph_element.xpath(".//pic:pic")
+        images = get_paragraph_element_images(paragraph_element, doc, images_list, get_image_id)
         if len(images) > 0:
-            return "".join(
-                [item for item in [image_to_mode(image, doc, images_list, get_image_id) for image in images] if
-                 item is not None])
+            return images_to_string(images, doc, images_list, get_image_id)
         elif paragraph_element.text is not None:
             return paragraph_element.text
         return ""
@@ -89,8 +114,18 @@ class DocSplitHandle(BaseSplitHandle):
         try:
             psn = paragraph.style.name
             if psn.startswith('Heading'):
-                return "".join(["#" for i in range(int(psn.replace("Heading ", '')))]) + " " + paragraph.text
+                title = "".join(["#" for i in range(int(psn.replace("Heading ", '')))]) + " " + paragraph.text
+                images = reduce(lambda x, y: [*x, *y],
+                                [get_paragraph_element_images(e, doc, images_list, get_image_id) for e in
+                                 paragraph._element],
+                                [])
+
+                if len(images) > 0:
+                    return title + '\n' + images_to_string(images, doc, images_list, get_image_id) if len(
+                        paragraph.text) > 0 else images_to_string(images, doc, images_list, get_image_id)
+                return title
         except Exception as e:
+            traceback.print_exc()
             return paragraph.text
         return get_paragraph_txt(paragraph, doc, images_list, get_image_id)
 
@@ -110,11 +145,12 @@ class DocSplitHandle(BaseSplitHandle):
     def to_md(self, doc, images_list, get_image_id):
         elements = []
         for element in doc.element.body:
-            if element.tag.endswith('tbl'):
+            tag = str(element.tag)
+            if tag.endswith('tbl'):
                 # 处理表格
                 table = Table(element, doc)
                 elements.append(table)
-            elif element.tag.endswith('p'):
+            elif tag.endswith('p'):
                 # 处理段落
                 paragraph = Paragraph(element, doc)
                 elements.append(paragraph)
@@ -153,3 +189,13 @@ class DocSplitHandle(BaseSplitHandle):
                 ".DOC") or file_name.endswith(".DOCX"):
             return True
         return False
+
+    def get_content(self, file):
+        try:
+            image_list = []
+            buffer = file.read()
+            doc = Document(io.BytesIO(buffer))
+            return self.to_md(doc, image_list, get_image_id_func())
+        except BaseException as e:
+            traceback.print_exception(e)
+            return ''

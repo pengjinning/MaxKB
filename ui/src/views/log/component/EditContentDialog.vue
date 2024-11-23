@@ -1,5 +1,11 @@
 <template>
-  <el-dialog title="修改内容" v-model="dialogVisible" width="600">
+  <el-dialog
+    title="修改内容"
+    v-model="dialogVisible"
+    width="600"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+  >
     <el-form
       ref="formRef"
       :model="form"
@@ -18,15 +24,20 @@
         </el-input>
       </el-form-item>
       <el-form-item label="内容" prop="content">
-        <el-input
+        <MdEditor
           v-model="form.content"
           placeholder="请输入内容"
-          maxlength="100000"
-          show-word-limit
-          :rows="8"
-          type="textarea"
+          :maxLength="100000"
+          :preview="false"
+          :toolbars="toolbars"
+          style="height: 300px"
+          @onUploadImg="onUploadImg"
+          :footers="footers"
         >
-        </el-input>
+          <template #defFooters>
+            <span style="margin-left: -6px">/ 100000</span>
+          </template>
+        </MdEditor>
       </el-form-item>
       <el-form-item label="标题">
         <el-input
@@ -74,6 +85,7 @@
           filterable
           placeholder="请选择文档"
           :loading="optionLoading"
+          @change="changeDocument"
         >
           <el-option
             v-for="item in documentList"
@@ -99,9 +111,10 @@ import { ref, watch, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import logApi from '@/api/log'
+import imageApi from '@/api/image'
 import useStore from '@/stores'
 
-const { application, document } = useStore()
+const { application, document, user } = useStore()
 
 const route = useRoute()
 const {
@@ -110,6 +123,38 @@ const {
 
 const emit = defineEmits(['refresh'])
 const formRef = ref()
+
+const toolbars = [
+  'bold',
+  'underline',
+  'italic',
+  '-',
+  'title',
+  'strikeThrough',
+  'sub',
+  'sup',
+  'quote',
+  'unorderedList',
+  'orderedList',
+  'task',
+  '-',
+  'codeRow',
+  'code',
+  'link',
+  'image',
+  'table',
+  'mermaid',
+  'katex',
+  '-',
+  'revoke',
+  'next',
+  '=',
+  'pageFullscreen',
+  'preview',
+  'htmlPreview'
+] as any[]
+
+const footers = ['markdownTotal', 0, '=', 1, 'scrollSwitch']
 
 const dialogVisible = ref<boolean>(false)
 const loading = ref(false)
@@ -151,20 +196,60 @@ watch(dialogVisible, (bool) => {
   }
 })
 
-function changeDataset(id: string) {
-  form.value.document_id = ''
-  getDocument(id)
+const onUploadImg = async (files: any, callback: any) => {
+  const res = await Promise.all(
+    files.map((file: any) => {
+      return new Promise((rev, rej) => {
+        const fd = new FormData()
+        fd.append('file', file)
+
+        imageApi
+          .postImage(fd)
+          .then((res: any) => {
+            rev(res)
+          })
+          .catch((error) => rej(error))
+      })
+    })
+  )
+
+  callback(res.map((item) => item.data))
 }
 
-function getDocument(id: string) {
-  document.asyncGetAllDocument(id, loading).then((res: any) => {
+function changeDataset(dataset_id: string) {
+  localStorage.setItem(id + 'chat_dataset_id', dataset_id)
+  form.value.document_id = ''
+  getDocument(dataset_id)
+}
+
+function changeDocument(document_id: string) {
+  localStorage.setItem(id + 'chat_document_id', document_id)
+}
+
+function getDocument(dataset_id: string) {
+  document.asyncGetAllDocument(dataset_id, loading).then((res: any) => {
     documentList.value = res.data
+    if (localStorage.getItem(id + 'chat_document_id')) {
+      form.value.document_id = localStorage.getItem(id + 'chat_document_id') as string
+    }
+    if (!documentList.value.find((v) => v.id === form.value.document_id)) {
+      form.value.document_id = ''
+    }
   })
 }
 
 function getDataset() {
   application.asyncGetApplicationDataset(id, loading).then((res: any) => {
     datasetList.value = res.data
+    if (localStorage.getItem(id + 'chat_dataset_id')) {
+      form.value.dataset_id = localStorage.getItem(id + 'chat_dataset_id') as string
+      if (!datasetList.value.find((v) => v.id === form.value.dataset_id)) {
+        form.value.dataset_id = ''
+        form.value.document_id = ''
+      } else {
+        getDocument(form.value.dataset_id)
+      }
+    }
   })
 }
 

@@ -5,7 +5,7 @@ RUN cd ui && \
     npm install && \
     npm run build && \
     rm -rf ./node_modules
-FROM ghcr.io/1panel-dev/maxkb-python-pg:python3.11-pg15.6 AS stage-build
+FROM ghcr.io/1panel-dev/maxkb-python-pg:python3.11-pg15.8 AS stage-build
 
 ARG DEPENDENCIES="                    \
         python3-pip"
@@ -28,7 +28,7 @@ RUN python3 -m venv /opt/py3 && \
     if [ "$(uname -m)" = "x86_64" ]; then sed -i 's/^torch.*/torch = {version = "^2.2.1+cpu", source = "pytorch"}/g' pyproject.toml; fi && \
     poetry install
 
-FROM ghcr.io/1panel-dev/maxkb-python-pg:python3.11-pg15.6
+FROM ghcr.io/1panel-dev/maxkb-python-pg:python3.11-pg15.8
 ARG DOCKER_IMAGE_TAG=dev \
     BUILD_AT \
     GITHUB_COMMIT
@@ -61,6 +61,8 @@ RUN chmod 755 /opt/maxkb/app/installer/run-maxkb.sh && \
     cp -f /opt/maxkb/app/installer/run-maxkb.sh /usr/bin/run-maxkb.sh && \
     cp -f /opt/maxkb/app/installer/init.sql /docker-entrypoint-initdb.d && \
     mkdir -p /opt/maxkb/app/sandbox/python-packages &&  \
+    find /opt/maxkb/app -mindepth 1 -not -name 'sandbox' -exec chmod 700 {} + && \
+    chmod 755 /tmp  && \
     useradd --no-create-home --home /opt/maxkb/app/sandbox --shell /bin/bash sandbox &&  \
     chown sandbox:sandbox /opt/maxkb/app/sandbox
 

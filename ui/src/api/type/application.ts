@@ -4,22 +4,30 @@ interface ApplicationFormType {
   name?: string
   desc?: string
   model_id?: string
-  multiple_rounds_dialogue?: boolean
+  dialogue_number?: number
   prologue?: string
   dataset_id_list?: string[]
   dataset_setting?: any
   model_setting?: any
   problem_optimization?: boolean
+  problem_optimization_prompt?: string
   icon?: string | undefined
   type?: string
   work_flow?: any
   model_params_setting?: any
+  tts_model_params_setting?: any
+  stt_model_id?: string
+  tts_model_id?: string
+  stt_model_enable?: boolean
+  tts_model_enable?: boolean
+  tts_type?: string
 }
 interface chatType {
   id: string
   problem_text: string
   answer_text: string
   buffer: Array<String>
+  answer_text_list: Array<string>
   /**
    * 是否写入结束
    */
@@ -29,8 +37,14 @@ interface chatType {
    */
   is_stop?: boolean
   record_id: string
+  chat_id: string
   vote_status: string
   status?: number
+  execution_details: any[]
+  upload_meta?: {
+    document_list: Array<any>
+    image_list: Array<any>
+  }
 }
 
 export class ChatRecordManage {
@@ -49,18 +63,25 @@ export class ChatRecordManage {
     this.is_close = false
     this.write_ed = false
   }
+  append_answer(chunk_answer: String) {
+    this.chat.answer_text_list[this.chat.answer_text_list.length - 1] =
+      this.chat.answer_text_list[this.chat.answer_text_list.length - 1] + chunk_answer
+    this.chat.answer_text = this.chat.answer_text + chunk_answer
+  }
   write() {
     this.chat.is_stop = false
     this.is_stop = false
+    this.is_close = false
+    this.write_ed = false
+    this.chat.write_ed = false
     if (this.loading) {
       this.loading.value = true
     }
     this.id = setInterval(() => {
       if (this.chat.buffer.length > 20) {
-        this.chat.answer_text =
-          this.chat.answer_text + this.chat.buffer.splice(0, this.chat.buffer.length - 20).join('')
+        this.append_answer(this.chat.buffer.splice(0, this.chat.buffer.length - 20).join(''))
       } else if (this.is_close) {
-        this.chat.answer_text = this.chat.answer_text + this.chat.buffer.splice(0).join('')
+        this.append_answer(this.chat.buffer.splice(0).join(''))
         this.chat.write_ed = true
         this.write_ed = true
         if (this.loading) {
@@ -72,7 +93,7 @@ export class ChatRecordManage {
       } else {
         const s = this.chat.buffer.shift()
         if (s !== undefined) {
-          this.chat.answer_text = this.chat.answer_text + s
+          this.append_answer(s)
         }
       }
     }, this.ms)
@@ -87,6 +108,10 @@ export class ChatRecordManage {
   }
   close() {
     this.is_close = true
+  }
+  open() {
+    this.is_close = false
+    this.is_stop = false
   }
   append(answer_text_block: string) {
     for (let index = 0; index < answer_text_block.length; index++) {
