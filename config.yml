@@ -1,0 +1,11 @@
+# 数据库链接信息
+DB_NAME: maxkb
+DB_HOST: localhost
+DB_PORT: 5433
+DB_USER: postgres
+DB_PASSWORD: C8aJEVCCvSA1VFi8
+DB_ENGINE: django.db.backends.postgresql_psycopg2
+
+DEBUG: true
+
+TIME_ZONE: Asia/Shanghai

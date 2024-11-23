@@ -10,6 +10,7 @@ import directives from '@/directives'
 import i18n from '@/locales'
 import { WorkflowType } from '@/enums/workflow'
 import { nodeDict } from '@/workflow/common/data'
+// 
 class AppNode extends HtmlResize.view {
   isMounted
   r
